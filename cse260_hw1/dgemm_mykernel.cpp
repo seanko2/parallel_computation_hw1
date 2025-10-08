@@ -139,3 +139,31 @@ void DGEMM_mykernel::my_macro_kernel(
         }                                                       // 1-th loop around micro-kernel
     }
 }
+
+void DGEMM_mykernel::pack_A(
+        int m,
+        int k,
+        const double * A,
+        int lda,
+        double * packed_A
+    )
+{
+    for (int i = 0; i < m; i += param_mr) { // iterating through the Mr subpanels of Ap
+        for (int j = 0; j < k; j++) { // iterating through each column in Kc of Ap subpanel
+            for (int k = 0; k < param_mr; k++) { // iterating through each row in the column of subpanel
+                ;
+            }
+        }
+    }
+}
+
+void DGEMM_mykernel::pack_B(
+    int k,
+    int n,
+    const double * B,
+    int ldb,
+    double * packed_B
+    )
+{
+    
+}
