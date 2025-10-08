@@ -149,8 +149,11 @@ void DGEMM_mykernel::pack_A(
     )
 {
     for (int i = 0; i < m; i += param_mr) { // iterating through the Mr subpanels of Ap
+        // handle fringe case where n is not divisible by blocking size
+        // so there is remainder where true number of rows is less than param_mr
+        int true_row = min(param_mr, m - i);
         for (int j = 0; j < k; j++) { // iterating through each column in Kc of Ap subpanel
-            for (int k = 0; k < param_mr; k++) { // iterating through each row in the column of subpanel
+            for (int k = 0; k < true_row; k++) { // iterating through each row in the column of subpanel
                 // i + l is current row, lda should be the column dimension (?) based on tutorial, j is the current column
                 // need to get row and multiply by total columns to get to current row, then add the current column to get right address
                 *packed_A = A[(i + k) * lda + j];
