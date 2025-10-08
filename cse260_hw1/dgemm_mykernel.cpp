@@ -148,7 +148,7 @@ void DGEMM_mykernel::pack_A(
         double * packed_A // not an array, just pointer to first element?
     )
 {
-    for (int i = 0; i < m; i += param_mr) { // iterating through the Mr subpanels of Ap
+    for (int i = 0; i < m; i += param_mr) { // iterating through the Mr subpanels of Ap (rows)
         // handle fringe case where n is not divisible by blocking size
         // so there is remainder where true number of rows is less than param_mr
         int true_row = min(param_mr, m - i);
@@ -171,5 +171,11 @@ void DGEMM_mykernel::pack_B(
     double * packed_B
     )
 {
-    
+    for (int i = 0; i < n; i += param_nr) { // iterating through the Nr subpanels of Bp (columns)
+        for (int j = 0; j < k; j++) { // iterating through each row in Kc of Bp subpanel
+            for (int k = 0; k < param_nr; k++) { // iterating through each column in the row of subpanel:
+                ;
+            }
+        }
+    }
 }
