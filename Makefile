@@ -43,27 +43,36 @@ DEST_DIR ?= ~/hw1
 # rsync options: -a archive, -z compress, -v verbose, --delete remove remote files not present locally
 RSYNC_OPTS ?= -azv --delete --exclude=.git --exclude='*.o' --exclude='$(TARGET)'
 
-# Use ssh (which will read ~/.ssh/config). Do NOT set -i/-p here.
 RSYNC_SSH ?= ssh
 
-.PHONY: upload upload-dryrun
-
-# Build then upload
-# upload: all
-# 	@echo "Creating remote directory $(SSH_HOST):$(DEST_DIR)"
-# 	@ssh $(SSH_HOST) 'mkdir -p $(DEST_DIR)'
-# 	@echo "Syncing current directory -> $(SSH_HOST):$(DEST_DIR)"
-# 	rsync $(RSYNC_OPTS) -e '$(RSYNC_SSH)' ./ $(SSH_HOST):$(DEST_DIR)/
-
-# Upload without building
+.PHONY: upload upload-dryrun remote grade argument
+# Upload
 upload:
 	@echo "Creating remote directory $(SSH_HOST):$(DEST_DIR)"
 	@ssh $(SSH_HOST) 'mkdir -p $(DEST_DIR)'
 	@echo "Syncing current directory -> $(SSH_HOST):$(DEST_DIR)"
 	rsync $(RSYNC_OPTS) -e '$(RSYNC_SSH)' ./ $(SSH_HOST):$(DEST_DIR)/
 
-# Dry-run to preview changes
+# Preview changes
 upload-dryrun:
 	@echo "DRY RUN: rsync (no changes will be made)"
 	rsync --dry-run $(RSYNC_OPTS) -e '$(RSYNC_SSH)' ./ $(SSH_HOST):$(DEST_DIR)/
 
+# Make on amazonaws
+remote: upload
+	@echo "Running 'make $(or $(MAKE_TARGET),<default>)' on $(SSH_HOST):$(DEST_DIR)"
+	@ssh $(SSH_HOST) 'mkdir -p $(DEST_DIR) && cd $(DEST_DIR) && $(MAKE) $(MAKE_TARGET)'
+
+# Run grade
+grade: upload remote
+	@echo "Running './grade.sh' on $(SSH_HOST):$(DEST_DIR)"
+	@ssh $(SSH_HOST) 'cd $(DEST_DIR) && sh -lc '\''./grade.sh'\'''
+
+# Run arbitrary command
+argument:
+	@if [ -z "$(CMD)" ]; then \
+	  echo "Usage: make argument CMD='your command here'"; \
+	  exit 1; \
+	fi
+	@echo "Running on $(SSH_HOST): $(CMD)"
+	@ssh $(SSH_HOST) 'cd $(DEST_DIR) && sh -lc '\''$(CMD)'\'''
