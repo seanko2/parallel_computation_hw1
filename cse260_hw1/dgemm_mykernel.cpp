@@ -28,7 +28,7 @@ void DGEMM_mykernel::my_dgemm(
         )
 {
     int    ic, ib, jc, jb, pc, pb;
-    const double *packA, *packB;
+    // const double *packA, *packB;
     // allocate memory for packed_A and packed_B
     double* packed_A = new double[param_mc * param_kc];
     double* packed_B = new double[param_kc * param_nc];
@@ -181,7 +181,7 @@ void DGEMM_mykernel::pack_B(
     for (int i = 0; i < n; i += param_nr) { // iterating through the Nr subpanels of Bp (columns)
         int true_col = min(param_nr, n - i);
         for (int j = 0; j < k; j++) { // iterating through each row in Kc of Bp subpanel
-            for (int k = 0; k < param_nr; k++) { // iterating through each column in the row of subpanel
+            for (int k = 0; k < true_col; k++) { // iterating through each column in the row of subpanel
                 // j is the current row, ldb should be column dimension, i + k is current column
                 // get row and multiple by total columns for current row, add current column
                 *packed_B = B[j * ldb + i + k];
