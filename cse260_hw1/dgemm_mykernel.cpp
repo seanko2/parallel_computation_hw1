@@ -2,13 +2,22 @@
 #include "parameters.h"
 
 #include <stdexcept>
+#include <iostream>
 
 void DGEMM_mykernel::compute(const Mat& A, const Mat& B, Mat& C) {
     int m = A.rows();
     int k = A.cols();
     int n = B.cols();
 
+    // TODO: remove
+    A.print();
+    B.print();
+    C.print();
+
     my_dgemm(m, n, k, A.data(), k, B.data(), n, C.data(), n);
+
+    // TODO: remove
+    C.print();
 }
 
 string DGEMM_mykernel::name() {
@@ -46,6 +55,11 @@ void DGEMM_mykernel::my_dgemm(
             #else
             // Implement pack_A if you want to use PACK option
             pack_A(ib, pb, &XA[pc + ic * lda ], lda, packed_A);
+            // TODO: remove
+            for (double * p = packed_A; p < packed_A + ib * pb; ++p) {
+                    std::cout << *p << std::endl;
+                }
+            
             #endif
 
             for ( jc = 0; jc < n; jc += param_nc ) {        // 3-rd loop around micro-kernel
@@ -56,6 +70,10 @@ void DGEMM_mykernel::my_dgemm(
                 #else
                 // Implement pack_B if you want to use PACK option
                 pack_B(pb, jb, &XB[ldb * pc + jc ], ldb, packed_B);
+                // TODO: remove
+                for (double * p = packed_B; p < packed_B + ib * pb; ++p) {
+                    std::cout << *p << std::endl;
+                }
                 #endif
 
                 // Implement your macro-kernel here
