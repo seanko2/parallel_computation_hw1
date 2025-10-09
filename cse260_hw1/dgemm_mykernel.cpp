@@ -160,11 +160,11 @@ void DGEMM_mykernel::pack_A(
         // so there is remainder where true number of rows is less than param_mr
         int true_row = min(param_mr, m - i);
         for (int j = 0; j < k; j++) { // iterating through each column in Kc of Ap subpanel
-            for (int k = 0; k < true_row; k++) { // iterating through each row in the column of subpanel
+            for (int l = 0; l < true_row; l++) { // iterating through each row in the column of subpanel
                 // i + k is current row, lda should be the column dimension (?) based on tutorial, j is the current column
                 // need to get row and multiply by total columns to get to current row, then add the current column to get right address
-                *packed_A = A[(i + k) * lda + j];
-                *packed_A++; // move to the next position
+                *packed_A++ = A[(i + l) * lda + j];
+                // *packed_A++; // move to the next position
             }
         }
     }
@@ -181,11 +181,11 @@ void DGEMM_mykernel::pack_B(
     for (int i = 0; i < n; i += param_nr) { // iterating through the Nr subpanels of Bp (columns)
         int true_col = min(param_nr, n - i);
         for (int j = 0; j < k; j++) { // iterating through each row in Kc of Bp subpanel
-            for (int k = 0; k < true_col; k++) { // iterating through each column in the row of subpanel
+            for (int l = 0; l < true_col; l++) { // iterating through each column in the row of subpanel
                 // j is the current row, ldb should be column dimension, i + k is current column
                 // get row and multiple by total columns for current row, add current column
-                *packed_B = B[j * ldb + i + k];
-                *packed_B++; // move to next position
+                *packed_B++ = B[j * ldb + i + l];
+                // *packed_B++; // move to next position
             }
         }
     }
