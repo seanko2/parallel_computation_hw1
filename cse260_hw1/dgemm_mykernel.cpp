@@ -29,28 +29,33 @@ void DGEMM_mykernel::my_dgemm(
 {
     int    ic, ib, jc, jb, pc, pb;
     const double *packA, *packB;
+    // allocate memory for packed_A and packed_B
+    double* packed_A = new double[param_mc * param_kc];
+    double* packed_B = new double[param_kc * param_nc];
 
     // Using NOPACK option for simplicity
-    #define NOPACK
+    // #define NOPACK
 
     for ( ic = 0; ic < m; ic += param_mc ) {              // 5-th loop around micro-kernel
-        ib = min( m - ic, param_mc );
+        ib = min( m - ic, param_mc ); // the row number of Ap
         for ( pc = 0; pc < k; pc += param_kc ) {          // 4-th loop around micro-kernel
-            pb = min( k - pc, param_kc );
+            pb = min( k - pc, param_kc ); // the column number of Ap and row number of Bp
             
             #ifdef NOPACK
             packA = &XA[pc + ic * lda ];
             #else
             // Implement pack_A if you want to use PACK option
+            pack_A(ib, pb, &XA[pc + ic * lda ], lda, packed_A);
             #endif
 
             for ( jc = 0; jc < n; jc += param_nc ) {        // 3-rd loop around micro-kernel
-                jb = min( n - jc, param_nc );
+                jb = min( n - jc, param_nc ); // the column number of Bp
 
                 #ifdef NOPACK
                 packB = &XB[ldb * pc + jc ];
                 #else
                 // Implement pack_B if you want to use PACK option
+                pack_B(pb, jb, &XB[ldb * pc + jc ], ldb, packed_B);
                 #endif
 
                 // Implement your macro-kernel here
@@ -58,8 +63,10 @@ void DGEMM_mykernel::my_dgemm(
                         ib,
                         jb,
                         pb,
-                        packA,
-                        packB,
+                        // packA,
+                        // packB,
+                        packed_A,
+                        packed_B,
                         &C[ ic * ldc + jc ], 
                         ldc
                         );
