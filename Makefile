@@ -67,12 +67,3 @@ remote: upload
 grade: upload remote
 	@echo "Running './grade.sh' on $(SSH_HOST):$(DEST_DIR)"
 	@ssh $(SSH_HOST) 'cd $(DEST_DIR) && sh -lc '\''./grade.sh'\'''
-
-# Run arbitrary command
-argument:
-	@if [ -z "$(CMD)" ]; then \
-	  echo "Usage: make argument CMD='your command here'"; \
-	  exit 1; \
-	fi
-	@echo "Running on $(SSH_HOST): $(CMD)"
-	@ssh $(SSH_HOST) 'cd $(DEST_DIR) && sh -lc '\''$(CMD)'\'''
