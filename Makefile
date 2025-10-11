@@ -2,6 +2,7 @@
 MY_OPT := 
 CXX := g++
 CXXFLAGS := -Wall -Wextra -std=c++17  -ggdb -O3 $(MY_OPT)
+CXXFLAGS += -march=armv8.2-a+sve
 
 # Target executable name
 TARGET := mm

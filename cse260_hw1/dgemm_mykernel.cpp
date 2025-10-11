@@ -117,7 +117,7 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
             for (int k = 0; k < nr; k++) { // iterating through columns of Bp subpanel
                 // subpanel of B is packed row-major, so multiply row by nr and add column
                 double b_ik = b[i * nr + k];
-                // adding the product of a_ji and b_ik to loction c_jk
+                // adding the product of a_ji and b_ik to loction c_jk 
                 c[j * ldc + k] += a_ji * b_ik;
             }
         }
@@ -169,8 +169,10 @@ void DGEMM_mykernel::my_macro_kernel(
                         pb,
                         min(ib-i, param_mr),
                         min(jb-j, param_nr),
-                        &packA[i * ldc],          // assumes sq matrix, otherwise use lda
-                        &packB[j],                
+                        // &packA[i * ldc],          // assumes sq matrix, otherwise use lda
+                        // &packB[j],                
+                        &packA[i * pb], // sets pointer to start of current subpanel of Ap in packed_A
+                        &packB[j * pb], // sets pointer to start of current subpanel of Bp in packed_B
                         &C[ i * ldc + j ],
                         ldc
                         );
