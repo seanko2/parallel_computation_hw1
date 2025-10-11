@@ -10,14 +10,14 @@ void DGEMM_mykernel::compute(const Mat& A, const Mat& B, Mat& C) {
     int n = B.cols();
 
     // TODO: remove
-    A.print();
-    B.print();
-    C.print();
+    // A.print();
+    // B.print();
+    // C.print();
 
     my_dgemm(m, n, k, A.data(), k, B.data(), n, C.data(), n);
 
     // TODO: remove
-    C.print();
+    // C.print();
 }
 
 string DGEMM_mykernel::name() {
@@ -101,6 +101,7 @@ void DGEMM_mykernel::my_dgemm(
 // C-based microkernel (NOPACK version)
 //
 // Implement your micro-kernel here
+// Now uses packed A and B
 void DGEMM_mykernel::my_dgemm_ukr( int    kc,
                                   int    mr,
                                   int    nr,
@@ -109,32 +110,44 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
                                   double *c,
                                   int ldc)
 {
-    int l, j, i;
-    double cloc[param_mr][param_nr] = {{0}};
-    
-    // Load C into local array
-    for (i = 0; i < mr; ++i) {
-        for (j = 0; j < nr; ++j) {
-            cloc[i][j] = c(i, j, ldc);
-        }
-    }
-    
-    // Perform matrix multiplication
-    for ( l = 0; l < kc; ++l ) {                 
-        for ( i = 0; i < mr; ++i ) { 
-            double as = a(i, l, ldc);
-            for ( j = 0; j < nr; ++j ) { 
-                cloc[i][j] +=  as * b(l, j, ldc);
+    for (int i = 0; i < kc; i++) { // iterating through columns of Ap subpanel and rows of Bp subpanel
+        for (int j = 0; j < mr; j++) { // iterating through rows of Ap subpanel
+            // subpanel of A is packed column-major, so multiply column by mr and add row
+            double a_ji = a[i * mr + j];
+            for (int k = 0; k < nr; k++) { // iterating through columns of Bp subpanel
+                // subpanel of B is packed row-major, so multiply row by nr and add column
+                double b_ik = b[i * nr + k];
+                // adding the product of a_ji and b_ik to loction c_jk
+                c[j * ldc + k] += a_ji * b_ik;
             }
         }
     }
+    // int l, j, i;
+    // double cloc[param_mr][param_nr] = {{0}};
     
-    // Store local array back to C
-    for (i = 0; i < mr; ++i) {
-        for (j = 0; j < nr; ++j) {
-            c(i, j, ldc) = cloc[i][j];
-        }
-    }
+    // // Load C into local array
+    // for (i = 0; i < mr; ++i) {
+    //     for (j = 0; j < nr; ++j) {
+    //         cloc[i][j] = c(i, j, ldc);
+    //     }
+    // }
+    
+    // // Perform matrix multiplication
+    // for ( l = 0; l < kc; ++l ) {                 
+    //     for ( i = 0; i < mr; ++i ) { 
+    //         double as = a(i, l, ldc);
+    //         for ( j = 0; j < nr; ++j ) { 
+    //             cloc[i][j] +=  as * b(l, j, ldc);
+    //         }
+    //     }
+    // }
+    
+    // // Store local array back to C
+    // for (i = 0; i < mr; ++i) {
+    //     for (j = 0; j < nr; ++j) {
+    //         c(i, j, ldc) = cloc[i][j];
+    //     }
+    // }
 }
 
 // Implement your macro-kernel here
