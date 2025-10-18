@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <arm_sve.h>
 
 void DGEMM_mykernel::compute(const Mat& A, const Mat& B, Mat& C) {
     int m = A.rows();
@@ -56,9 +57,9 @@ void DGEMM_mykernel::my_dgemm(
             // Implement pack_A if you want to use PACK option
             pack_A(ib, pb, &XA[pc + ic * lda ], lda, packed_A);
             // TODO: remove
-            for (double * p = packed_A; p < packed_A + ib * pb; ++p) {
-                    std::cout << *p << std::endl;
-                }
+            // for (double * p = packed_A; p < packed_A + ib * pb; ++p) {
+            //         std::cout << *p << std::endl;
+            //     }
             
             #endif
 
@@ -71,9 +72,9 @@ void DGEMM_mykernel::my_dgemm(
                 // Implement pack_B if you want to use PACK option
                 pack_B(pb, jb, &XB[ldb * pc + jc ], ldb, packed_B);
                 // TODO: remove
-                for (double * p = packed_B; p < packed_B + ib * pb; ++p) {
-                    std::cout << *p << std::endl;
-                }
+                // for (double * p = packed_B; p < packed_B + ib * pb; ++p) {
+                //     std::cout << *p << std::endl;
+                // }
                 #endif
 
                 // Implement your macro-kernel here
@@ -110,18 +111,44 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
                                   double *c,
                                   int ldc)
 {
-    for (int i = 0; i < kc; i++) { // iterating through columns of Ap subpanel and rows of Bp subpanel
-        for (int j = 0; j < mr; j++) { // iterating through rows of Ap subpanel
-            // subpanel of A is packed column-major, so multiply column by mr and add row
-            double a_ji = a[i * mr + j];
-            for (int k = 0; k < nr; k++) { // iterating through columns of Bp subpanel
-                // subpanel of B is packed row-major, so multiply row by nr and add column
-                double b_ik = b[i * nr + k];
-                // adding the product of a_ji and b_ik to loction c_jk 
-                c[j * ldc + k] += a_ji * b_ik;
-            }
-        }
-    }
+    // SIMD SVE VERSION
+    // have 32 vector registers, exact size unknown, 128 to 2048, can't seem to find exact size...
+    // assuming 128 bits, so 2 doubles per vector, total of 64 doubles in registers
+    // need registers for C (most), A (some), B (some)
+    // want to maximize data reuse and minimize loads from memory
+    // logic flow: load C into registers for reading and writing, load column of A, load row of B
+    // multiply each value in column of A with each value in row of B, accumulate into C
+    // column of A is loaded once, values of B row are loaded one at a time, want maximum reuse of column of A
+    // since one register holds 2, if column of A has 2 values, then that uses one register
+    // need another register to hold value from row B
+    // have 30 registers for C, which is 60 doubles
+    // since A is 2, then B can be 30
+    // try a 2x30 kernel
+
+    const double *a_curr = a; // pointer to current A subpanel row
+    const double *b_curr = b; // pointer to current B subpanel column
+
+    svfloat64_t c_sub[30]; // registers to hold 2x30 subblock of C
+    svbool_t pred_mr = svwhilelt_b64_u64(0, mr); // predicate to activate only mr rows that are valid
+
+    
+
+
+    // PLAIN PACKING VERSION
+    // for (int i = 0; i < kc; i++) { // iterating through columns of Ap subpanel and rows of Bp subpanel
+    //     for (int j = 0; j < mr; j++) { // iterating through rows of Ap subpanel
+    //         // subpanel of A is packed column-major, so multiply column by mr and add row
+    //         double a_ji = a[i * mr + j];
+    //         for (int k = 0; k < nr; k++) { // iterating through columns of Bp subpanel
+    //             // subpanel of B is packed row-major, so multiply row by nr and add column
+    //             double b_ik = b[i * nr + k];
+    //             // adding the product of a_ji and b_ik to loction c_jk 
+    //             c[j * ldc + k] += a_ji * b_ik;
+    //         }
+    //     }
+    // }
+
+    // ORIGINAL VERSION
     // int l, j, i;
     // double cloc[param_mr][param_nr] = {{0}};
     
