@@ -123,33 +123,48 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
     // need another register to hold value from row B
     // have 30 registers for C, which is 60 doubles
     // since A is 2, then B can be 30
-    // try a 2x30 kernel, param_mr = 2, param_nr = 30
+    // try a 2x30 kernel, param_mr = 2, param_nr = 30, not working well (4.48)
+
+    //try 4x12 kernel, param_mr = 4, param_nr = 12, slightly better (5.5)
+
 
     const double *a_curr = a; // pointer to current A subpanel row
     const double *b_curr = b; // pointer to current B subpanel column
 
+    // registers to hold 4x12 subblock of C
+    svfloat64_t c0_0, c0_1, c0_2, c0_3, c0_4, c0_5, c0_6, c0_7, c0_8, c0_9, c0_10, c0_11;
+    svfloat64_t c1_0, c1_1, c1_2, c1_3, c1_4, c1_5, c1_6, c1_7, c1_8, c1_9, c1_10, c1_11;
+    
+    svfloat64_t* c_sub[2][12] = {
+        {&c0_0, &c0_1, &c0_2, &c0_3, &c0_4, &c0_5, &c0_6, &c0_7, &c0_8, &c0_9, &c0_10, &c0_11},
+        {&c1_0, &c1_1, &c1_2, &c1_3, &c1_4, &c1_5, &c1_6, &c1_7, &c1_8, &c1_9, &c1_10, &c1_11}
+    };
     // registers to hold 2x30 subblock of C
-    svfloat64_t c0, c1, c2, c3, c4, c5, c6, c7, c8, c9;
-    svfloat64_t c10, c11, c12, c13, c14, c15, c16, c17, c18, c19;
-    svfloat64_t c20, c21, c22, c23, c24, c25, c26, c27, c28, c29;
+    // svfloat64_t c0, c1, c2, c3, c4, c5, c6, c7, c8, c9;
+    // svfloat64_t c10, c11, c12, c13, c14, c15, c16, c17, c18, c19;
+    // svfloat64_t c20, c21, c22, c23, c24, c25, c26, c27, c28, c29;
+ 
+    // svfloat64_t* c_sub[30] = {&c0, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9,
+    //                          &c10, &c11, &c12, &c13, &c14, &c15, &c16, &c17, &c18, &c19,
+    //                          &c20, &c21, &c22, &c23, &c24, &c25, &c26, &c27};
 
-    svfloat64_t* c_sub[30] = {&c0, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9,
-                             &c10, &c11, &c12, &c13, &c14, &c15, &c16, &c17, &c18, &c19,
-                             &c20, &c21, &c22, &c23, &c24, &c25, &c26, &c27, &c28, &c29};
-
-    svbool_t pred_mr = svwhilelt_b64(0, mr); // predicate to activate only mr rows that are valid
+    svbool_t pred_1 = svwhilelt_b64(0, mr); // predicate to activate only mr rows that are valid
+    svbool_t pred_2 = svwhilelt_b64(2, mr); // predicate to activate only mr rows that are valid
 
     for (int i = 0; i < nr; i++) { // only initialize valid columns of C based on columns in B
-        *c_sub[i] = svdup_f64(0.0);
+        *c_sub[0][i] = svdup_f64(0.0);
+        *c_sub[1][i] = svdup_f64(0.0);
     }
 
     for (int j = 0; j < kc; j++) { // iterate through for every kc set of A column and B row in subpanels
-        svfloat64_t a_col = svld1_f64(pred_mr, a_curr); // load current column of A subpanel
-        
-        #pragma GCC unroll 30
+        svfloat64_t a_col0 = svld1_f64(pred_1, a_curr); // load current column of A subpanel
+        svfloat64_t a_col1 = svld1_f64(pred_2, a_curr + 2);        
+
+        #pragma GCC unroll 12
         for (int k = 0; k < nr; k++) { // iterate through each column of B row
             svfloat64_t b_val = svdup_f64(b_curr[k]); // grab value from B and put in vector register
-            *c_sub[k] = svmla_f64_m(pred_mr, *c_sub[k], a_col, b_val); // multiply accumulate into C subblock
+            *c_sub[0][k] = svmla_f64_m(pred_1, *c_sub[0][k], a_col0, b_val); // multiply accumulate into C subblock
+            *c_sub[1][k] = svmla_f64_m(pred_2, *c_sub[1][k], a_col1, b_val); // multiply accumulate into C subblock
         }
 
         a_curr += mr; // move to next column of A subpanel
@@ -158,8 +173,9 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
 
     // store results back to C, remember C is row-major but c_sub is column-major
     for (int i = 0; i < nr; i++) { // iterate through each column of c subblock
-        double temp_c[2]; // temp array to hold c
-        svst1_f64(pred_mr, temp_c, *c_sub[i]); // store column i of c_sub into temp c
+        double temp_c[4]; // temp array to hold c
+        svst1_f64(pred_1, &temp_c[0], *c_sub[0][i]); // store column i of c_sub into temp c
+        svst1_f64(pred_2, &temp_c[2], *c_sub[1][i]); // store column i of c_sub into temp c
 
         for (int j = 0; j < mr; j++) { // iterate through each row of c subblock
             c[j * ldc + i] += temp_c[j]; // add to original C
