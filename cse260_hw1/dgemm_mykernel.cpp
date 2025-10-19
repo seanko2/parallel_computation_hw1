@@ -127,78 +127,104 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
 
     //try 4x12 kernel, param_mr = 4, param_nr = 12, slightly better (5.5)
 
+    //try 8x6 kernel, param_mr = 8, param_nr = 6, same (5.6)
 
-    const double *a_curr = a; // pointer to current A subpanel row
-    const double *b_curr = b; // pointer to current B subpanel column
 
-    // registers to hold 4x12 subblock of C
-    svfloat64_t c0_0, c0_1, c0_2, c0_3, c0_4, c0_5, c0_6, c0_7, c0_8, c0_9, c0_10, c0_11;
-    svfloat64_t c1_0, c1_1, c1_2, c1_3, c1_4, c1_5, c1_6, c1_7, c1_8, c1_9, c1_10, c1_11;
+    // const double *a_curr = a; // pointer to current A subpanel row
+    // const double *b_curr = b; // pointer to current B subpanel column
+
+    // //registers to hold 8x6 subblock of C
+    // svfloat64_t c0_0, c0_1, c0_2, c0_3, c0_4, c0_5;
+    // svfloat64_t c1_0, c1_1, c1_2, c1_3, c1_4, c1_5;
+    // svfloat64_t c2_0, c2_1, c2_2, c2_3, c2_4, c2_5;
+    // svfloat64_t c3_0, c3_1, c3_2, c3_3, c3_4, c3_5;
+
+    // svfloat64_t* c_sub[4][6] = {
+    //     {&c0_0, &c0_1, &c0_2, &c0_3, &c0_4, &c0_5},
+    //     {&c1_0, &c1_1, &c1_2, &c1_3, &c1_4, &c1_5},
+    //     {&c2_0, &c2_1, &c2_2, &c2_3, &c2_4, &c2_5},
+    //     {&c3_0, &c3_1, &c3_2, &c3_3, &c3_4, &c3_5}
+    // };
+
+    // // registers to hold 4x12 subblock of C
+    // // svfloat64_t c0_0, c0_1, c0_2, c0_3, c0_4, c0_5, c0_6, c0_7, c0_8, c0_9, c0_10, c0_11;
+    // // svfloat64_t c1_0, c1_1, c1_2, c1_3, c1_4, c1_5, c1_6, c1_7, c1_8, c1_9, c1_10, c1_11;
     
-    svfloat64_t* c_sub[2][12] = {
-        {&c0_0, &c0_1, &c0_2, &c0_3, &c0_4, &c0_5, &c0_6, &c0_7, &c0_8, &c0_9, &c0_10, &c0_11},
-        {&c1_0, &c1_1, &c1_2, &c1_3, &c1_4, &c1_5, &c1_6, &c1_7, &c1_8, &c1_9, &c1_10, &c1_11}
-    };
-    // registers to hold 2x30 subblock of C
-    // svfloat64_t c0, c1, c2, c3, c4, c5, c6, c7, c8, c9;
-    // svfloat64_t c10, c11, c12, c13, c14, c15, c16, c17, c18, c19;
-    // svfloat64_t c20, c21, c22, c23, c24, c25, c26, c27, c28, c29;
+    // // svfloat64_t* c_sub[2][12] = {
+    // //     {&c0_0, &c0_1, &c0_2, &c0_3, &c0_4, &c0_5, &c0_6, &c0_7, &c0_8, &c0_9, &c0_10, &c0_11},
+    // //     {&c1_0, &c1_1, &c1_2, &c1_3, &c1_4, &c1_5, &c1_6, &c1_7, &c1_8, &c1_9, &c1_10, &c1_11}
+    // // };
+
+    // // registers to hold 2x30 subblock of C
+    // // svfloat64_t c0, c1, c2, c3, c4, c5, c6, c7, c8, c9;
+    // // svfloat64_t c10, c11, c12, c13, c14, c15, c16, c17, c18, c19;
+    // // svfloat64_t c20, c21, c22, c23, c24, c25, c26, c27, c28, c29;
  
-    // svfloat64_t* c_sub[30] = {&c0, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9,
-    //                          &c10, &c11, &c12, &c13, &c14, &c15, &c16, &c17, &c18, &c19,
-    //                          &c20, &c21, &c22, &c23, &c24, &c25, &c26, &c27};
+    // // svfloat64_t* c_sub[30] = {&c0, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9,
+    // //                          &c10, &c11, &c12, &c13, &c14, &c15, &c16, &c17, &c18, &c19,
+    // //                          &c20, &c21, &c22, &c23, &c24, &c25, &c26, &c27};
 
-    svbool_t pred_1 = svwhilelt_b64(0, mr); // predicate to activate only mr rows that are valid
-    svbool_t pred_2 = svwhilelt_b64(2, mr); // predicate to activate only mr rows that are valid
+    // svbool_t pred_0 = svwhilelt_b64(0, mr); // predicate to activate only mr rows that are valid
+    // svbool_t pred_2 = svwhilelt_b64(2, mr);
+    // svbool_t pred_4 = svwhilelt_b64(4, mr);
+    // svbool_t pred_6 = svwhilelt_b64(6, mr);
 
-    for (int i = 0; i < nr; i++) { // only initialize valid columns of C based on columns in B
-        *c_sub[0][i] = svdup_f64(0.0);
-        *c_sub[1][i] = svdup_f64(0.0);
-    }
+    // for (int i = 0; i < nr; i++) { // only initialize valid columns of C based on columns in B
+    //     *c_sub[0][i] = svdup_f64(0.0);
+    //     *c_sub[1][i] = svdup_f64(0.0);
+    //     *c_sub[2][i] = svdup_f64(0.0);
+    //     *c_sub[3][i] = svdup_f64(0.0);
+    // }
 
-    for (int j = 0; j < kc; j++) { // iterate through for every kc set of A column and B row in subpanels
-        svfloat64_t a_col0 = svld1_f64(pred_1, a_curr); // load current column of A subpanel
-        svfloat64_t a_col1 = svld1_f64(pred_2, a_curr + 2);        
+    // for (int j = 0; j < kc; j++) { // iterate through for every kc set of A column and B row in subpanels
+    //     svfloat64_t a_col0 = svld1_f64(pred_0, a_curr); // load current column of A subpanel
+    //     svfloat64_t a_col1 = svld1_f64(pred_2, a_curr + 2);        
+    //     svfloat64_t a_col2 = svld1_f64(pred_4, a_curr + 4);        
+    //     svfloat64_t a_col3 = svld1_f64(pred_6, a_curr + 6);        
 
-        #pragma GCC unroll 12
-        for (int k = 0; k < nr; k++) { // iterate through each column of B row
-            svfloat64_t b_val = svdup_f64(b_curr[k]); // grab value from B and put in vector register
-            *c_sub[0][k] = svmla_f64_m(pred_1, *c_sub[0][k], a_col0, b_val); // multiply accumulate into C subblock
-            *c_sub[1][k] = svmla_f64_m(pred_2, *c_sub[1][k], a_col1, b_val); // multiply accumulate into C subblock
-        }
+    //     #pragma GCC unroll 6
+    //     for (int k = 0; k < nr; k++) { // iterate through each column of B row
+    //         svfloat64_t b_val = svdup_f64(b_curr[k]); // grab value from B and put in vector register
+    //         *c_sub[0][k] = svmla_f64_m(pred_0, *c_sub[0][k], a_col0, b_val); // multiply accumulate into C subblock
+    //         *c_sub[1][k] = svmla_f64_m(pred_2, *c_sub[1][k], a_col1, b_val);
+    //         *c_sub[2][k] = svmla_f64_m(pred_4, *c_sub[2][k], a_col2, b_val);
+    //         *c_sub[3][k] = svmla_f64_m(pred_6, *c_sub[3][k], a_col3, b_val);
+    //     }
 
-        a_curr += mr; // move to next column of A subpanel
-        b_curr += nr; // move to next row of B subpanel
-    }
+    //     a_curr += mr; // move to next column of A subpanel
+    //     b_curr += nr; // move to next row of B subpanel
+    // }
 
-    // store results back to C, remember C is row-major but c_sub is column-major
-    for (int i = 0; i < nr; i++) { // iterate through each column of c subblock
-        double temp_c[4]; // temp array to hold c
-        svst1_f64(pred_1, &temp_c[0], *c_sub[0][i]); // store column i of c_sub into temp c
-        svst1_f64(pred_2, &temp_c[2], *c_sub[1][i]); // store column i of c_sub into temp c
+    // // store results back to C, remember C is row-major but c_sub is column-major
+    // for (int i = 0; i < nr; i++) { // iterate through each column of c subblock
+    //     double temp_c[8]; // temp array to hold c
+    //     svst1_f64(pred_0, &temp_c[0], *c_sub[0][i]); // store column i of c_sub into temp c
+    //     svst1_f64(pred_2, &temp_c[2], *c_sub[1][i]);
+    //     svst1_f64(pred_4, &temp_c[4], *c_sub[2][i]);
+    //     svst1_f64(pred_6, &temp_c[6], *c_sub[3][i]);
 
-        for (int j = 0; j < mr; j++) { // iterate through each row of c subblock
-            c[j * ldc + i] += temp_c[j]; // add to original C
-        }
-        // svfloat64_t c_orig = svld1_f64(pred_mr, c + i * ldc); // load one column of 2x30 C subblock
-        // svfloat64_t c_new = svadd_f64_m(pred_mr, c_orig, *c_sub[i]); // add computed values
-        // svst1_f64(pred_mr, c + i * ldc, c_new); // store back to C
-    }
+    //     for (int j = 0; j < mr; j++) { // iterate through each row of c subblock
+    //         c[j * ldc + i] += temp_c[j]; // add to original C
+    //     }
+    //     // svfloat64_t c_orig = svld1_f64(pred_mr, c + i * ldc); // load one column of 2x30 C subblock
+    //     // svfloat64_t c_new = svadd_f64_m(pred_mr, c_orig, *c_sub[i]); // add computed values
+    //     // svst1_f64(pred_mr, c + i * ldc, c_new); // store back to C
+    // }
 
 
     // PLAIN PACKING VERSION
-    // for (int i = 0; i < kc; i++) { // iterating through columns of Ap subpanel and rows of Bp subpanel
-    //     for (int j = 0; j < mr; j++) { // iterating through rows of Ap subpanel
-    //         // subpanel of A is packed column-major, so multiply column by mr and add row
-    //         double a_ji = a[i * mr + j];
-    //         for (int k = 0; k < nr; k++) { // iterating through columns of Bp subpanel
-    //             // subpanel of B is packed row-major, so multiply row by nr and add column
-    //             double b_ik = b[i * nr + k];
-    //             // adding the product of a_ji and b_ik to loction c_jk 
-    //             c[j * ldc + k] += a_ji * b_ik;
-    //         }
-    //     }
-    // }
+    for (int i = 0; i < kc; i++) { // iterating through columns of Ap subpanel and rows of Bp subpanel
+        for (int j = 0; j < mr; j++) { // iterating through rows of Ap subpanel
+            // subpanel of A is packed column-major, so multiply column by mr and add row
+            double a_ji = a[i * mr + j];
+            for (int k = 0; k < nr; k++) { // iterating through columns of Bp subpanel
+                // subpanel of B is packed row-major, so multiply row by nr and add column
+                double b_ik = b[i * nr + k];
+                // adding the product of a_ji and b_ik to loction c_jk 
+                c[j * ldc + k] += a_ji * b_ik;
+            }
+        }
+    }
 
     // ORIGINAL VERSION
     // int l, j, i;
