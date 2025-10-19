@@ -106,9 +106,9 @@ void DGEMM_mykernel::my_dgemm(
 void DGEMM_mykernel::my_dgemm_ukr( int    kc,
                                   int    mr,
                                   int    nr,
-                                  const double *a,
-                                  const double *b,
-                                  double *c,
+                                  const double *__restrict__ a,
+                                  const double *__restrict__ b,
+                                  double *__restrict__ c,
                                   int ldc)
 {
     // SIMD SVE VERSION
@@ -145,7 +145,8 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
 
     for (int j = 0; j < kc; j++) { // iterate through for every kc set of A column and B row in subpanels
         svfloat64_t a_col = svld1_f64(pred_mr, a_curr); // load current column of A subpanel
-
+        
+        #pragma GCC unroll 30
         for (int k = 0; k < nr; k++) { // iterate through each column of B row
             svfloat64_t b_val = svdup_f64(b_curr[k]); // grab value from B and put in vector register
             *c_sub[k] = svmla_f64_m(pred_mr, *c_sub[k], a_col, b_val); // multiply accumulate into C subblock
