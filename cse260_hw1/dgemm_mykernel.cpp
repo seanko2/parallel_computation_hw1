@@ -155,10 +155,17 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
         b_curr += nr; // move to next row of B subpanel
     }
 
-    for (int i = 0; i < nr; i++) { // store results back to C
-        svfloat64_t c_orig = svld1_f64(pred_mr, c + i * ldc); // load one column of 2x30 C subblock
-        svfloat64_t c_new = svadd_f64_m(pred_mr, c_orig, *c_sub[i]); // add computed values
-        svst1_f64(pred_mr, c + i * ldc, c_new); // store back to C
+    // store results back to C, remember C is row-major but c_sub is column-major
+    for (int i = 0; i < nr; i++) { // iterate through each column of c subblock
+        double temp_c[2]; // temp array to hold c
+        svst1_f64(pred_mr, temp_c, *c_sub[i]); // store column i of c_sub into temp c
+
+        for (int j = 0; j < mr; j++) { // iterate through each row of c subblock
+            c[j * ldc + i] += temp_c[j]; // add to original C
+        }
+        // svfloat64_t c_orig = svld1_f64(pred_mr, c + i * ldc); // load one column of 2x30 C subblock
+        // svfloat64_t c_new = svadd_f64_m(pred_mr, c_orig, *c_sub[i]); // add computed values
+        // svst1_f64(pred_mr, c + i * ldc, c_new); // store back to C
     }
 
 
