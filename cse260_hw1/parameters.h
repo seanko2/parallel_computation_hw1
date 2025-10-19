@@ -19,7 +19,7 @@
 #endif
 
 #ifndef PARAM_NR
-#define PARAM_NR 6
+#define PARAM_NR 8
 #endif
 
 inline constexpr int param_mc = PARAM_MC;

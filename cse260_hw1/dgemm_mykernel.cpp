@@ -40,14 +40,21 @@ void DGEMM_mykernel::my_dgemm(
     int    ic, ib, jc, jb, pc, pb;
     // const double *packA, *packB;
     // allocate memory for packed_A and packed_B
-    double* packed_A = new double[param_mc * param_kc];
-    double* packed_B = new double[param_kc * param_nc];
+    // double* packed_A = new double[param_mc * param_kc];
+    // double* packed_B = new double[param_kc * param_nc];
 
     // Using NOPACK option for simplicity
     // #define NOPACK
 
     for ( ic = 0; ic < m; ic += param_mc ) {              // 5-th loop around micro-kernel
         ib = min( m - ic, param_mc ); // the row number of Ap
+
+        size_t packed_A_size = (size_t)param_mc * (size_t)param_kc;
+        double* packed_A = nullptr;
+        if (posix_memalign((void**)&packed_A, 64, packed_A_size * sizeof(double)) != 0) {
+            throw std::bad_alloc();
+        }
+
         for ( pc = 0; pc < k; pc += param_kc ) {          // 4-th loop around micro-kernel
             pb = min( k - pc, param_kc ); // the column number of Ap and row number of Bp
             
@@ -65,6 +72,12 @@ void DGEMM_mykernel::my_dgemm(
 
             for ( jc = 0; jc < n; jc += param_nc ) {        // 3-rd loop around micro-kernel
                 jb = min( n - jc, param_nc ); // the column number of Bp
+
+                size_t packed_B_size = (size_t)param_kc * (size_t)param_nc;
+                double* packed_B = nullptr;
+                if (posix_memalign((void**)&packed_B, 64, packed_B_size * sizeof(double)) != 0) {
+                    throw std::bad_alloc();
+                }
 
                 #ifdef NOPACK
                 packB = &XB[ldb * pc + jc ];
@@ -89,8 +102,10 @@ void DGEMM_mykernel::my_dgemm(
                         &C[ ic * ldc + jc ], 
                         ldc
                         );
+                free(packed_B);
             }                                               // End 3.rd loop around micro-kernel
-        }                                                 // End 4.th loop around micro-kernel
+        } 
+        free(packed_A);                                                // End 4.th loop around micro-kernel
     }                                                     // End 5.th loop around micro-kernel
 }
 
@@ -211,22 +226,52 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
     //     // svst1_f64(pred_mr, c + i * ldc, c_new); // store back to C
     // }
 
+    // PLAIN PACKING VERSION 1 (4.7)
+    // for (int i = 0; i < kc; i++) { // iterating through columns of Ap subpanel and rows of Bp subpanel
+    //     for (int j = 0; j < mr; j++) { // iterating through rows of Ap subpanel
+    //         // subpanel of A is packed column-major, so multiply column by mr and add row
+    //         double a_ji = a[i * mr + j];
+    //         for (int k = 0; k < nr; k++) { // iterating through columns of Bp subpanel
+    //             // subpanel of B is packed row-major, so multiply row by nr and add column
+    //             double b_ik = b[i * nr + k];
+    //             // adding the product of a_ji and b_ik to loction c_jk 
+    //             c[j * ldc + k] += a_ji * b_ik;
+    //         }
+    //     }
+    // }
 
-    // PLAIN PACKING VERSION
-    for (int i = 0; i < kc; i++) { // iterating through columns of Ap subpanel and rows of Bp subpanel
-        for (int j = 0; j < mr; j++) { // iterating through rows of Ap subpanel
-            // subpanel of A is packed column-major, so multiply column by mr and add row
-            double a_ji = a[i * mr + j];
-            for (int k = 0; k < nr; k++) { // iterating through columns of Bp subpanel
-                // subpanel of B is packed row-major, so multiply row by nr and add column
-                double b_ik = b[i * nr + k];
-                // adding the product of a_ji and b_ik to loction c_jk 
-                c[j * ldc + k] += a_ji * b_ik;
+    // PACKING VERSION 2 (6.8)
+    int l, j, i;
+    double cloc[param_mr][param_nr] = {{0}};
+    
+    // Load C into local array
+    for (i = 0; i < mr; ++i) {
+        for (j = 0; j < nr; ++j) {
+            cloc[i][j] = c(i, j, ldc);
+        }
+    }
+    
+    // Perform matrix multiplication
+    for ( l = 0; l < kc; ++l ) {                 
+        const double* a_col = a + (size_t)l * (size_t)param_mr;
+        const double* b_row = b + (size_t)l * (size_t)param_nr;
+
+        for ( i = 0; i < mr; ++i ) { 
+            double a_il = a_col[i];
+            for ( j = 0; j < nr; ++j ) { 
+                cloc[i][j] +=  a_il * b_row[j];
             }
         }
     }
+    
+    // Store local array back to C
+    for (i = 0; i < mr; ++i) {
+        for (j = 0; j < nr; ++j) {
+            c(i, j, ldc) = cloc[i][j];
+        }
+    }
 
-    // ORIGINAL VERSION
+    // ORIGINAL VERSION (6.4)
     // int l, j, i;
     // double cloc[param_mr][param_nr] = {{0}};
     
@@ -286,24 +331,30 @@ void DGEMM_mykernel::my_macro_kernel(
 }
 
 void DGEMM_mykernel::pack_A(
-        int m,
-        int k,
-        const double * A,
+        int m, // starting row of panel
+        int k, // starting column of panel
+        const double * A, // pointer to first element of panel
         int lda, // row or column dimension?
         double * packed_A // not an array, just pointer to first element?
     )
 {
+    double* a_ptr = packed_A;
     for (int i = 0; i < m; i += param_mr) { // iterating through the Mr subpanels of Ap (rows)
         // handle fringe case where n is not divisible by blocking size
         // so there is remainder where true number of rows is less than param_mr
-        int true_row = min(param_mr, m - i);
+        int true_row = std::min(param_mr, m - i);
         for (int j = 0; j < k; j++) { // iterating through each column in Kc of Ap subpanel
+            const double* a_col_ptr = &A[(size_t)(i) * (size_t)(lda) + (size_t)(j)]; // pointer to current column in Ap subpanel
             for (int l = 0; l < true_row; l++) { // iterating through each row in the column of subpanel
                 // i + k is current row, lda should be the column dimension (?) based on tutorial, j is the current column
                 // need to get row and multiply by total columns to get to current row, then add the current column to get right address
-                *packed_A++ = A[(i + l) * lda + j];
-                // *packed_A++; // move to the next position
+                // a_ptr[l] = A[(i + l) * lda + j];
+                a_ptr[l] = a_col_ptr[l * lda]; // moves down the column
             }
+            for (int l = true_row; l < param_mr; l++) { // padding for fringe case
+                a_ptr[l] = 0.0;
+            }
+            a_ptr += param_mr; // move to next column location in packed_A
         }
     }
 }
@@ -316,15 +367,21 @@ void DGEMM_mykernel::pack_B(
     double * packed_B
     )
 {
+    double* b_ptr = packed_B;
     for (int i = 0; i < n; i += param_nr) { // iterating through the Nr subpanels of Bp (columns)
         int true_col = min(param_nr, n - i);
         for (int j = 0; j < k; j++) { // iterating through each row in Kc of Bp subpanel
+            const double* b_row_ptr = &B[(size_t)(j) * (size_t)(ldb) + (size_t)(i)];
             for (int l = 0; l < true_col; l++) { // iterating through each column in the row of subpanel
                 // j is the current row, ldb should be column dimension, i + k is current column
                 // get row and multiple by total columns for current row, add current column
-                *packed_B++ = B[j * ldb + i + l];
-                // *packed_B++; // move to next position
+                // b_ptr[l] = B[j * ldb + i + l];
+                b_ptr[l] = b_row_ptr[l]; // moves across the row
             }
+            for (int l = true_col; l < param_nr; l++) { // padding for fringe case
+                b_ptr[l] = 0.0;
+            }
+            b_ptr += param_nr; // move to next row location in packed_B
         }
     }
 }
