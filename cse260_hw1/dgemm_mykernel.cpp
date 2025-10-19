@@ -46,14 +46,21 @@ void DGEMM_mykernel::my_dgemm(
     // Using NOPACK option for simplicity
     // #define NOPACK
 
+    size_t packed_A_size = (size_t)param_mc * (size_t)param_kc;
+    double* packed_A = nullptr;
+    if (posix_memalign((void**)&packed_A, 64, packed_A_size * sizeof(double)) != 0) {
+        throw std::bad_alloc();
+    }
+
+    size_t packed_B_size = (size_t)param_kc * (size_t)param_nc;
+    double* packed_B = nullptr;
+    if (posix_memalign((void**)&packed_B, 64, packed_B_size * sizeof(double)) != 0) {
+        throw std::bad_alloc();
+    }
+
     for ( ic = 0; ic < m; ic += param_mc ) {              // 5-th loop around micro-kernel
         ib = min( m - ic, param_mc ); // the row number of Ap
 
-        size_t packed_A_size = (size_t)param_mc * (size_t)param_kc;
-        double* packed_A = nullptr;
-        if (posix_memalign((void**)&packed_A, 64, packed_A_size * sizeof(double)) != 0) {
-            throw std::bad_alloc();
-        }
 
         for ( pc = 0; pc < k; pc += param_kc ) {          // 4-th loop around micro-kernel
             pb = min( k - pc, param_kc ); // the column number of Ap and row number of Bp
@@ -73,11 +80,6 @@ void DGEMM_mykernel::my_dgemm(
             for ( jc = 0; jc < n; jc += param_nc ) {        // 3-rd loop around micro-kernel
                 jb = min( n - jc, param_nc ); // the column number of Bp
 
-                size_t packed_B_size = (size_t)param_kc * (size_t)param_nc;
-                double* packed_B = nullptr;
-                if (posix_memalign((void**)&packed_B, 64, packed_B_size * sizeof(double)) != 0) {
-                    throw std::bad_alloc();
-                }
 
                 #ifdef NOPACK
                 packB = &XB[ldb * pc + jc ];
@@ -102,11 +104,11 @@ void DGEMM_mykernel::my_dgemm(
                         &C[ ic * ldc + jc ], 
                         ldc
                         );
-                free(packed_B);
             }                                               // End 3.rd loop around micro-kernel
         } 
-        free(packed_A);                                                // End 4.th loop around micro-kernel
     }                                                     // End 5.th loop around micro-kernel
+    free(packed_A);                                                // End 4.th loop around micro-kernel
+    free(packed_B);
 }
 
 #define a(i, j, ld) a[ (i)*(ld) + (j) ]
@@ -126,7 +128,115 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
                                   double *__restrict__ c,
                                   int ldc)
 {
-    // SIMD SVE VERSION
+    // SIMD SVE VERSION 2
+    const int VL = svcntd(); // get number of doubles that can fit per vector
+    const int num_vecs = (nr + VL - 1) / VL; // number of vectors to cover nr columns
+    
+    for (int i = 0; i < num_vecs; i++) {
+        int col_offset = i * VL;
+        svbool_t npred = svwhilelt_b64((uint64_t)col_offset, (uint64_t)nr);
+
+        if (mr == 4) {
+            // load C values into vector registers
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
+
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
+
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+            }
+
+            svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
+            svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
+            svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
+
+            continue;
+        }
+        else if (mr == 3) {
+            // load C values into vector registers
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
+
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
+            
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+            }
+
+            svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
+            svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
+
+            continue;
+        }
+        else if (mr == 2) {
+            // load C values into vector registers
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
+
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
+
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+            }
+
+            svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
+
+            continue;
+        }
+        else if (mr == 1) {
+            // load C values into vector registers
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
+
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
+
+            
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+            }
+
+            svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
+
+            continue;
+        }
+    }
+
+
+    // SIMD SVE VERSION 1
     // have 32 vector registers, exact size unknown, 128 to 2048, can't seem to find exact size...
     // assuming 128 bits, so 2 doubles per vector, total of 64 doubles in registers
     // need registers for C (most), A (some), B (some)
@@ -143,7 +253,6 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
     //try 4x12 kernel, param_mr = 4, param_nr = 12, slightly better (5.5)
 
     //try 8x6 kernel, param_mr = 8, param_nr = 6, same (5.6)
-
 
     // const double *a_curr = a; // pointer to current A subpanel row
     // const double *b_curr = b; // pointer to current B subpanel column
@@ -241,35 +350,35 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
     // }
 
     // PACKING VERSION 2 (6.8)
-    int l, j, i;
-    double cloc[param_mr][param_nr] = {{0}};
+    // int l, j, i;
+    // double cloc[param_mr][param_nr] = {{0}};
     
-    // Load C into local array
-    for (i = 0; i < mr; ++i) {
-        for (j = 0; j < nr; ++j) {
-            cloc[i][j] = c(i, j, ldc);
-        }
-    }
+    // // Load C into local array
+    // for (i = 0; i < mr; ++i) {
+    //     for (j = 0; j < nr; ++j) {
+    //         cloc[i][j] = c(i, j, ldc);
+    //     }
+    // }
     
-    // Perform matrix multiplication
-    for ( l = 0; l < kc; ++l ) {                 
-        const double* a_col = a + (size_t)l * (size_t)param_mr;
-        const double* b_row = b + (size_t)l * (size_t)param_nr;
+    // // Perform matrix multiplication
+    // for ( l = 0; l < kc; ++l ) {                 
+    //     const double* a_col = a + (size_t)l * (size_t)param_mr;
+    //     const double* b_row = b + (size_t)l * (size_t)param_nr;
 
-        for ( i = 0; i < mr; ++i ) { 
-            double a_il = a_col[i];
-            for ( j = 0; j < nr; ++j ) { 
-                cloc[i][j] +=  a_il * b_row[j];
-            }
-        }
-    }
+    //     for ( i = 0; i < mr; ++i ) { 
+    //         double a_il = a_col[i];
+    //         for ( j = 0; j < nr; ++j ) { 
+    //             cloc[i][j] +=  a_il * b_row[j];
+    //         }
+    //     }
+    // }
     
-    // Store local array back to C
-    for (i = 0; i < mr; ++i) {
-        for (j = 0; j < nr; ++j) {
-            c(i, j, ldc) = cloc[i][j];
-        }
-    }
+    // // Store local array back to C
+    // for (i = 0; i < mr; ++i) {
+    //     for (j = 0; j < nr; ++j) {
+    //         c(i, j, ldc) = cloc[i][j];
+    //     }
+    // }
 
     // ORIGINAL VERSION (6.4)
     // int l, j, i;
