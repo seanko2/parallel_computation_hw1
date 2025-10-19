@@ -115,6 +115,15 @@ void DGEMM_mykernel::my_dgemm(
 #define b(i, j, ld) b[ (i)*(ld) + (j) ]
 #define c(i, j, ld) c[ (i)*(ld) + (j) ]
 
+
+void print_svfloat64(svfloat64_t vec, svbool_t pred) {
+    double buffer[svcntd()];
+    svst1(pred, buffer, vec);
+    for (int i = 0; i < int(svcntd()); i++) {
+        printf("Element %d: %f\n", i, buffer[i]);
+    }
+}
+
 //
 // C-based microkernel (NOPACK version)
 //
@@ -128,15 +137,19 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
                                   double *__restrict__ c,
                                   int ldc)
 {
+    // cout << "mr: " << mr << endl;
+    // cout << "nr: " << nr << endl;
     // SIMD SVE VERSION 2
     const int VL = svcntd(); // get number of doubles that can fit per vector
     const int num_vecs = (nr + VL - 1) / VL; // number of vectors to cover nr columns
     
     for (int i = 0; i < num_vecs; i++) {
+        // cout << mr << endl;
         int col_offset = i * VL;
         svbool_t npred = svwhilelt_b64((uint64_t)col_offset, (uint64_t)nr);
 
         if (mr == 4) {
+            // cout << "mr = 4" << endl;
             // load C values into vector registers
             svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
             svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
@@ -167,6 +180,7 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
             continue;
         }
         else if (mr == 3) {
+            // cout << "mr = 3" << endl;
             // load C values into vector registers
             svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
             svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
@@ -193,17 +207,24 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
             continue;
         }
         else if (mr == 2) {
+            // cout << "mr = 2" << endl;
             // load C values into vector registers
             svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
             svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
 
             for (int j = 0; j < kc; j++) {
                 const double* b_row = &b[j * nr]; // pointer to current row in B
+                // for (int idx = 0; idx < nr; idx++) {
+                //     cout << "B row " << j << " col " << idx << ": " << b_row[idx] << endl;
+                // }
                 svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
+                // print_svfloat64(b_vec, npred);
 
                 const double* a_col = &a[j * mr]; // pointer to current column in A
                 svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
                 svfloat64_t a1 = svdup_f64(a_col[1]);
+                // print_svfloat64(a0, npred);
+                // print_svfloat64(a1, npred);
 
                 c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
                 c1x = svmla_f64_m(npred, c1x, b_vec, a1);
@@ -215,6 +236,7 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
             continue;
         }
         else if (mr == 1) {
+            // cout << "mr = 1" << endl;
             // load C values into vector registers
             svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
 
@@ -421,7 +443,11 @@ void DGEMM_mykernel::my_macro_kernel(
         )
 {
     int    i, j;
-
+    // for (int i = 0; i < jb; i++) {
+    //     for (int j = 0; j < ib; j++) {
+    //         std::cout << "packB[" << i << "]: " << packB[i * pb + j] << std::endl;
+    //     }
+    // }
     for ( i = 0; i < ib; i += param_mr ) {                      // 2-th loop around micro-kernel
         for ( j = 0; j < jb; j += param_nr ) {                  // 1-th loop around micro-kernel
             my_dgemm_ukr (
@@ -447,23 +473,23 @@ void DGEMM_mykernel::pack_A(
         double * packed_A // not an array, just pointer to first element?
     )
 {
-    double* a_ptr = packed_A;
+    // double* a_ptr = packed_A;
     for (int i = 0; i < m; i += param_mr) { // iterating through the Mr subpanels of Ap (rows)
         // handle fringe case where n is not divisible by blocking size
         // so there is remainder where true number of rows is less than param_mr
         int true_row = std::min(param_mr, m - i);
         for (int j = 0; j < k; j++) { // iterating through each column in Kc of Ap subpanel
-            const double* a_col_ptr = &A[(size_t)(i) * (size_t)(lda) + (size_t)(j)]; // pointer to current column in Ap subpanel
+            // const double* a_col_ptr = &A[(size_t)(i) * (size_t)(lda) + (size_t)(j)]; // pointer to current column in Ap subpanel
             for (int l = 0; l < true_row; l++) { // iterating through each row in the column of subpanel
                 // i + k is current row, lda should be the column dimension (?) based on tutorial, j is the current column
                 // need to get row and multiply by total columns to get to current row, then add the current column to get right address
-                // a_ptr[l] = A[(i + l) * lda + j];
-                a_ptr[l] = a_col_ptr[l * lda]; // moves down the column
+                *packed_A++ = A[(i + l) * lda + j];
+                // a_ptr[l] = a_col_ptr[l * lda]; // moves down the column
             }
-            for (int l = true_row; l < param_mr; l++) { // padding for fringe case
-                a_ptr[l] = 0.0;
-            }
-            a_ptr += param_mr; // move to next column location in packed_A
+            // for (int l = true_row; l < param_mr; l++) { // padding for fringe case
+            //     a_ptr[l] = 6.5;
+            // }
+            // a_ptr += param_mr; // move to next column location in packed_A
         }
     }
 }
@@ -476,21 +502,21 @@ void DGEMM_mykernel::pack_B(
     double * packed_B
     )
 {
-    double* b_ptr = packed_B;
+    // double* b_ptr = packed_B;
     for (int i = 0; i < n; i += param_nr) { // iterating through the Nr subpanels of Bp (columns)
         int true_col = min(param_nr, n - i);
         for (int j = 0; j < k; j++) { // iterating through each row in Kc of Bp subpanel
-            const double* b_row_ptr = &B[(size_t)(j) * (size_t)(ldb) + (size_t)(i)];
+            // const double* b_row_ptr = &B[(size_t)(j) * (size_t)(ldb) + (size_t)(i)];
             for (int l = 0; l < true_col; l++) { // iterating through each column in the row of subpanel
                 // j is the current row, ldb should be column dimension, i + k is current column
                 // get row and multiple by total columns for current row, add current column
-                // b_ptr[l] = B[j * ldb + i + l];
-                b_ptr[l] = b_row_ptr[l]; // moves across the row
+                *packed_B++ = B[j * ldb + i + l];
+                // b_ptr[l] = b_row_ptr[l]; // moves across the row
             }
-            for (int l = true_col; l < param_nr; l++) { // padding for fringe case
-                b_ptr[l] = 0.0;
-            }
-            b_ptr += param_nr; // move to next row location in packed_B
+            // for (int l = true_col; l < param_nr; l++) { // padding for fringe case
+            //     b_ptr[l] = 7.5;
+            // }
+            // b_ptr += param_nr; // move to next row location in packed_B
         }
     }
 }
