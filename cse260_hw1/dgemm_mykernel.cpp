@@ -123,15 +123,43 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
     // need another register to hold value from row B
     // have 30 registers for C, which is 60 doubles
     // since A is 2, then B can be 30
-    // try a 2x30 kernel
+    // try a 2x30 kernel, param_mr = 2, param_nr = 30
 
     const double *a_curr = a; // pointer to current A subpanel row
     const double *b_curr = b; // pointer to current B subpanel column
 
-    svfloat64_t c_sub[30]; // registers to hold 2x30 subblock of C
-    svbool_t pred_mr = svwhilelt_b64_u64(0, mr); // predicate to activate only mr rows that are valid
+    // registers to hold 2x30 subblock of C
+    svfloat64_t c0, c1, c2, c3, c4, c5, c6, c7, c8, c9;
+    svfloat64_t c10, c11, c12, c13, c14, c15, c16, c17, c18, c19;
+    svfloat64_t c20, c21, c22, c23, c24, c25, c26, c27, c28, c29;
 
-    
+    svfloat64_t* c_sub[30] = {&c0, &c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8, &c9,
+                             &c10, &c11, &c12, &c13, &c14, &c15, &c16, &c17, &c18, &c19,
+                             &c20, &c21, &c22, &c23, &c24, &c25, &c26, &c27, &c28, &c29};
+
+    svbool_t pred_mr = svwhilelt_b64(0, mr); // predicate to activate only mr rows that are valid
+
+    for (int i = 0; i < nr; i++) { // only initialize valid columns of C based on columns in B
+        *c_sub[i] = svdup_f64(0.0);
+    }
+
+    for (int j = 0; j < kc; j++) { // iterate through for every kc set of A column and B row in subpanels
+        svfloat64_t a_col = svld1_f64(pred_mr, a_curr); // load current column of A subpanel
+
+        for (int k = 0; k < nr; k++) { // iterate through each column of B row
+            svfloat64_t b_val = svdup_f64(b_curr[k]); // grab value from B and put in vector register
+            *c_sub[k] = svmla_f64_m(pred_mr, *c_sub[k], a_col, b_val); // multiply accumulate into C subblock
+        }
+
+        a_curr += mr; // move to next column of A subpanel
+        b_curr += nr; // move to next row of B subpanel
+    }
+
+    for (int i = 0; i < nr; i++) { // store results back to C
+        svfloat64_t c_orig = svld1_f64(pred_mr, c + i * ldc); // load one column of 2x30 C subblock
+        svfloat64_t c_new = svadd_f64_m(pred_mr, c_orig, *c_sub[i]); // add computed values
+        svst1_f64(pred_mr, c + i * ldc, c_new); // store back to C
+    }
 
 
     // PLAIN PACKING VERSION

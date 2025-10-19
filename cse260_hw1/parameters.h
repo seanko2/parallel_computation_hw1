@@ -15,11 +15,11 @@
 #endif
 
 #ifndef PARAM_MR
-#define PARAM_MR 8
+#define PARAM_MR 2
 #endif
 
 #ifndef PARAM_NR
-#define PARAM_NR 8
+#define PARAM_NR 30
 #endif
 
 inline constexpr int param_mc = PARAM_MC;
