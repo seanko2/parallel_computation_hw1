@@ -976,12 +976,12 @@ void DGEMM_mykernel::pack_A(
         int true_row = std::min(param_mr, m - i);
         for (int j = 0; j < k; j++) { // iterating through each column in Kc of Ap subpanel
             // const double* a_col_ptr = &A[(size_t)(i) * (size_t)(lda) + (size_t)(j)]; // pointer to current column in Ap subpanel
-            for (int l = 0; l < true_row; l++) { // iterating through each row in the column of subpanel
-                // i + k is current row, lda should be the column dimension (?) based on tutorial, j is the current column
-                // need to get row and multiply by total columns to get to current row, then add the current column to get right address
-                *packed_A++ = A[(i + l) * lda + j];
-                // a_ptr[l] = a_col_ptr[l * lda]; // moves down the column
-            }
+            // for (int l = 0; l < true_row; l++) { // iterating through each row in the column of subpanel
+            //     // i + k is current row, lda should be the column dimension (?) based on tutorial, j is the current column
+            //     // need to get row and multiply by total columns to get to current row, then add the current column to get right address
+            //     *packed_A++ = A[(i + l) * lda + j];
+            //     // a_ptr[l] = a_col_ptr[l * lda]; // moves down the column
+            // }
             // for (int l = true_row; l < param_mr; l++) { // padding for fringe case
             //     a_ptr[l] = 6.5;
             // }
@@ -995,6 +995,15 @@ void DGEMM_mykernel::pack_A(
             // for (int l = true_row - (true_row % 4); l < true_row; l++) {
             //     *packed_A++ = A[(i + l) * lda + j];
             // }
+            for (int l = 0; l + 3 < true_row; l+=4) {
+                *packed_A++ = A[(i + l + 0) * lda + j];
+                *packed_A++ = A[(i + l + 1) * lda + j];
+                *packed_A++ = A[(i + l + 2) * lda + j];
+                *packed_A++ = A[(i + l + 3) * lda + j];
+            }
+            for (int l = true_row - (true_row % 4); l < true_row; l++) {
+                *packed_A++ = A[(i + l) * lda + j];
+            }
         }
     }
 }
@@ -1012,12 +1021,12 @@ void DGEMM_mykernel::pack_B(
         int true_col = min(param_nr, n - i);
         for (int j = 0; j < k; j++) { // iterating through each row in Kc of Bp subpanel
             // const double* b_row_ptr = &B[(size_t)(j) * (size_t)(ldb) + (size_t)(i)];
-            for (int l = 0; l < true_col; l++) { // iterating through each column in the row of subpanel
-                // j is the current row, ldb should be column dimension, i + k is current column
-                // get row and multiple by total columns for current row, add current column
-                *packed_B++ = B[j * ldb + i + l];
-                // b_ptr[l] = b_row_ptr[l]; // moves across the row
-            }
+            // for (int l = 0; l < true_col; l++) { // iterating through each column in the row of subpanel
+            //     // j is the current row, ldb should be column dimension, i + k is current column
+            //     // get row and multiple by total columns for current row, add current column
+            //     *packed_B++ = B[j * ldb + i + l];
+            //     // b_ptr[l] = b_row_ptr[l]; // moves across the row
+            // }
             // for (int l = true_col; l < param_nr; l++) { // padding for fringe case
             //     b_ptr[l] = 7.5;
             // }
@@ -1031,6 +1040,15 @@ void DGEMM_mykernel::pack_B(
             // for (int l = true_col - (true_col % 4); l < true_col; l++) {
             //     *packed_B++ = B[j * ldb + i + l];
             // }
+            for (int l = 0; l + 3 < true_col; l+=4) {
+                *packed_B++ = B[j * ldb + i + l + 0];
+                *packed_B++ = B[j * ldb + i + l + 1];
+                *packed_B++ = B[j * ldb + i + l + 2];
+                *packed_B++ = B[j * ldb + i + l + 3];
+            }
+            for (int l = true_col - (true_col % 4); l < true_col; l++) {
+                *packed_B++ = B[j * ldb + i + l];
+            }
         }
     }
 }

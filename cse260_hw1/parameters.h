@@ -15,7 +15,7 @@
 #endif
 
 #ifndef PARAM_MR
-#define PARAM_MR 14
+#define PARAM_MR 12
 #endif
 
 #ifndef PARAM_NR
