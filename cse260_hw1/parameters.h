@@ -11,7 +11,7 @@
 #endif
 
 #ifndef PARAM_KC
-#define PARAM_KC 128
+#define PARAM_KC 512
 #endif
 
 #ifndef PARAM_MR

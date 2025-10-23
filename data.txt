@@ -1,0 +1,40 @@
+Kernel: my_kernel
+Sizes: 17
+
+==> ./mm --kernel=my_kernel --size=32 --reps=10
+   my_kernel         32 1.0169
+==> ./mm --kernel=my_kernel --size=64 --reps=10
+   my_kernel         64 5.4575
+==> ./mm --kernel=my_kernel --size=128 --reps=10
+   my_kernel        128 13.9487
+==> ./mm --kernel=my_kernel --size=255 --reps=10
+   my_kernel        255 17.2601
+==> ./mm --kernel=my_kernel --size=256 --reps=10
+   my_kernel        256 17.4159
+==> ./mm --kernel=my_kernel --size=510 --reps=10
+   my_kernel        510 21.8404
+==> ./mm --kernel=my_kernel --size=512 --reps=10
+   my_kernel        512 21.8401
+==> ./mm --kernel=my_kernel --size=513 --reps=10
+   my_kernel        513 21.3285
+==> ./mm --kernel=my_kernel --size=768 --reps=10
+   my_kernel        768 21.4718
+==> ./mm --kernel=my_kernel --size=769 --reps=10
+   my_kernel        769 21.6106
+==> ./mm --kernel=my_kernel --size=1023 --reps=10
+   my_kernel       1023 21.2751
+==> ./mm --kernel=my_kernel --size=1024 --reps=10
+   my_kernel       1024 21.6620
+==> ./mm --kernel=my_kernel --size=1025 --reps=10
+   my_kernel       1025 21.3569
+==> ./mm --kernel=my_kernel --size=1033 --reps=10
+   my_kernel       1033 21.1060
+==> ./mm --kernel=my_kernel --size=2047 --reps=10
+   my_kernel       2047 21.5346
+==> ./mm --kernel=my_kernel --size=2048 --reps=10
+   my_kernel       2048 21.3345
+==> ./mm --kernel=my_kernel --size=2049 --reps=10
+   my_kernel       2049 21.2543
+
+Successful runs: 11; Failed: 0
+Average over 11 runs: 21.4340
