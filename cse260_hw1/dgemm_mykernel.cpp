@@ -118,695 +118,482 @@ void DGEMM_mykernel::my_dgemm_ukr( int    kc,
                                   double *__restrict__ c,
                                   int ldc)
 {
-    const int VL = svcntd(); // get number of doubles that can fit per vector
-    const int num_vecs = (nr + VL - 1) / VL; // number of vectors to cover nr columns
-    
-    for (int i = 0; i < num_vecs; i++) {
-        int col_offset = i * VL;
-        svbool_t npred = svwhilelt_b64((uint64_t)col_offset, (uint64_t)nr);
+    svbool_t npred = svwhilelt_b64((uint64_t)0, (uint64_t)nr);
 
-        switch (mr) {
-            // case 15: { // theoretical max, 20.7056
-            //     svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-            //     svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-            //     svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-            //     svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-            //     svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-            //     svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-            //     svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-            //     svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc + col_offset]);
-            //     svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc + col_offset]);
-            //     svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc + col_offset]);
-            //     svfloat64_t c10x = svld1_f64(npred, &c[10 * ldc + col_offset]);
-            //     svfloat64_t c11x = svld1_f64(npred, &c[11 * ldc + col_offset]);
-            //     svfloat64_t c12x = svld1_f64(npred, &c[12 * ldc + col_offset]);
-            //     svfloat64_t c13x = svld1_f64(npred, &c[13 * ldc + col_offset]);
-            //     svfloat64_t c14x = svld1_f64(npred, &c[14 * ldc + col_offset]);
-            //     
-            //     for (int j = 0; j < kc; j++) {
-            //         const double* b_row = &b[j * nr]; // pointer to current row in B
-            //         svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-            //     
-            //         const double* a_col = &a[j * mr]; // pointer to current column in A
-            //         svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-            //         svfloat64_t a1 = svdup_f64(a_col[1]);
-            //         svfloat64_t a2 = svdup_f64(a_col[2]);
-            //         svfloat64_t a3 = svdup_f64(a_col[3]);
-            //         svfloat64_t a4 = svdup_f64(a_col[4]);
-            //         svfloat64_t a5 = svdup_f64(a_col[5]);
-            //         svfloat64_t a6 = svdup_f64(a_col[6]);
-            //         svfloat64_t a7 = svdup_f64(a_col[7]);
-            //         svfloat64_t a8 = svdup_f64(a_col[8]);
-            //         svfloat64_t a9 = svdup_f64(a_col[9]);
-            //         svfloat64_t a10 = svdup_f64(a_col[10]);
-            //         svfloat64_t a11 = svdup_f64(a_col[11]);
-            //         svfloat64_t a12 = svdup_f64(a_col[12]);
-            //         svfloat64_t a13 = svdup_f64(a_col[13]);
-            //         svfloat64_t a14 = svdup_f64(a_col[14]);
-            //     
-            //         c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-            //         c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-            //         c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-            //         c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-            //         c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-            //         c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-            //         c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-            //         c7x = svmla_f64_m(npred, c7x, b_vec, a7);
-            //         c8x = svmla_f64_m(npred, c8x, b_vec, a8);
-            //         c9x = svmla_f64_m(npred, c9x, b_vec, a9);
-            //         c10x = svmla_f64_m(npred, c10x, b_vec, a10);
-            //         c11x = svmla_f64_m(npred, c11x, b_vec, a11);
-            //         c12x = svmla_f64_m(npred, c12x, b_vec, a12);
-            //         c13x = svmla_f64_m(npred, c13x, b_vec, a13);
-            //         c14x = svmla_f64_m(npred, c14x, b_vec, a14);
-            //     }
+    switch (mr) {
+        case 12: { // 20.7115
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
+            svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc ]);
+            svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc ]);
+            svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc ]);
+            svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc ]);
+            svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc ]);
+            svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc ]);
+            svfloat64_t c10x = svld1_f64(npred, &c[10 * ldc ]);
+            svfloat64_t c11x = svld1_f64(npred, &c[11 * ldc ]);
             
-            //     svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-            //     svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-            //     svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-            //     svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-            //     svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-            //     svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-            //     svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
-            //     svst1_f64(npred, &c[7 * ldc + col_offset], c7x);
-            //     svst1_f64(npred, &c[8 * ldc + col_offset], c8x);
-            //     svst1_f64(npred, &c[9 * ldc + col_offset], c9x);
-            //     svst1_f64(npred, &c[10 * ldc + col_offset], c10x);
-            //     svst1_f64(npred, &c[11 * ldc + col_offset], c11x);
-            //     svst1_f64(npred, &c[12 * ldc + col_offset], c12x);
-            //     svst1_f64(npred, &c[13 * ldc + col_offset], c13x);
-            //     svst1_f64(npred, &c[14 * ldc + col_offset], c14x);
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
             
-            //     break;
-            // }
-            // case 14: {
-            //     svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-            //     svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-            //     svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-            //     svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-            //     svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-            //     svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-            //     svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-            //     svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc + col_offset]);
-            //     svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc + col_offset]);
-            //     svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc + col_offset]);
-            //     svfloat64_t c10x = svld1_f64(npred, &c[10 * ldc + col_offset]);
-            //     svfloat64_t c11x = svld1_f64(npred, &c[11 * ldc + col_offset]);
-            //     svfloat64_t c12x = svld1_f64(npred, &c[12 * ldc + col_offset]);
-            //     svfloat64_t c13x = svld1_f64(npred, &c[13 * ldc + col_offset]);
-            //     
-            //     for (int j = 0; j < kc; j++) {
-            //         const double* b_row = &b[j * nr]; // pointer to current row in B
-            //         svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-            //     
-            //         const double* a_col = &a[j * mr]; // pointer to current column in A
-            //         svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-            //         svfloat64_t a1 = svdup_f64(a_col[1]);
-            //         svfloat64_t a2 = svdup_f64(a_col[2]);
-            //         svfloat64_t a3 = svdup_f64(a_col[3]);
-            //         svfloat64_t a4 = svdup_f64(a_col[4]);
-            //         svfloat64_t a5 = svdup_f64(a_col[5]);
-            //         svfloat64_t a6 = svdup_f64(a_col[6]);
-            //         svfloat64_t a7 = svdup_f64(a_col[7]);
-            //         svfloat64_t a8 = svdup_f64(a_col[8]);
-            //         svfloat64_t a9 = svdup_f64(a_col[9]);
-            //         svfloat64_t a10 = svdup_f64(a_col[10]);
-            //         svfloat64_t a11 = svdup_f64(a_col[11]);
-            //         svfloat64_t a12 = svdup_f64(a_col[12]);
-            //         svfloat64_t a13 = svdup_f64(a_col[13]);
-            //     
-            //         c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-            //         c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-            //         c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-            //         c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-            //         c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-            //         c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-            //         c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-            //         c7x = svmla_f64_m(npred, c7x, b_vec, a7);
-            //         c8x = svmla_f64_m(npred, c8x, b_vec, a8);
-            //         c9x = svmla_f64_m(npred, c9x, b_vec, a9);
-            //         c10x = svmla_f64_m(npred, c10x, b_vec, a10);
-            //         c11x = svmla_f64_m(npred, c11x, b_vec, a11);
-            //         c12x = svmla_f64_m(npred, c12x, b_vec, a12);
-            //         c13x = svmla_f64_m(npred, c13x, b_vec, a13);
-            //     }
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+                svfloat64_t a4 = svdup_f64(a_col[4]);
+                svfloat64_t a5 = svdup_f64(a_col[5]);
+                svfloat64_t a6 = svdup_f64(a_col[6]);
+                svfloat64_t a7 = svdup_f64(a_col[7]);
+                svfloat64_t a8 = svdup_f64(a_col[8]);
+                svfloat64_t a9 = svdup_f64(a_col[9]);
+                svfloat64_t a10 = svdup_f64(a_col[10]);
+                svfloat64_t a11 = svdup_f64(a_col[11]);
             
-            //     svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-            //     svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-            //     svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-            //     svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-            //     svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-            //     svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-            //     svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
-            //     svst1_f64(npred, &c[7 * ldc + col_offset], c7x);
-            //     svst1_f64(npred, &c[8 * ldc + col_offset], c8x);
-            //     svst1_f64(npred, &c[9 * ldc + col_offset], c9x);
-            //     svst1_f64(npred, &c[10 * ldc + col_offset], c10x);
-            //     svst1_f64(npred, &c[11 * ldc + col_offset], c11x);
-            //     svst1_f64(npred, &c[12 * ldc + col_offset], c12x);
-            //     svst1_f64(npred, &c[13 * ldc + col_offset], c13x);
-            
-            //     break;
-            // }
-            // case 13: {
-            //     svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-            //     svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-            //     svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-            //     svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-            //     svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-            //     svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-            //     svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-            //     svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc + col_offset]);
-            //     svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc + col_offset]);
-            //     svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc + col_offset]);
-            //     svfloat64_t c10x = svld1_f64(npred, &c[10 * ldc + col_offset]);
-            //     svfloat64_t c11x = svld1_f64(npred, &c[11 * ldc + col_offset]);
-            //     svfloat64_t c12x = svld1_f64(npred, &c[12 * ldc + col_offset]);
-            //     
-            //     for (int j = 0; j < kc; j++) {
-            //         const double* b_row = &b[j * nr]; // pointer to current row in B
-            //         svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-            //     
-            //         const double* a_col = &a[j * mr]; // pointer to current column in A
-            //         svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-            //         svfloat64_t a1 = svdup_f64(a_col[1]);
-            //         svfloat64_t a2 = svdup_f64(a_col[2]);
-            //         svfloat64_t a3 = svdup_f64(a_col[3]);
-            //         svfloat64_t a4 = svdup_f64(a_col[4]);
-            //         svfloat64_t a5 = svdup_f64(a_col[5]);
-            //         svfloat64_t a6 = svdup_f64(a_col[6]);
-            //         svfloat64_t a7 = svdup_f64(a_col[7]);
-            //         svfloat64_t a8 = svdup_f64(a_col[8]);
-            //         svfloat64_t a9 = svdup_f64(a_col[9]);
-            //         svfloat64_t a10 = svdup_f64(a_col[10]);
-            //         svfloat64_t a11 = svdup_f64(a_col[11]);
-            //         svfloat64_t a12 = svdup_f64(a_col[12]);
-            //     
-            //         c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-            //         c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-            //         c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-            //         c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-            //         c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-            //         c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-            //         c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-            //         c7x = svmla_f64_m(npred, c7x, b_vec, a7);
-            //         c8x = svmla_f64_m(npred, c8x, b_vec, a8);
-            //         c9x = svmla_f64_m(npred, c9x, b_vec, a9);
-            //         c10x = svmla_f64_m(npred, c10x, b_vec, a10);
-            //         c11x = svmla_f64_m(npred, c11x, b_vec, a11);
-            //         c12x = svmla_f64_m(npred, c12x, b_vec, a12);
-            //     }
-            
-            //     svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-            //     svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-            //     svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-            //     svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-            //     svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-            //     svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-            //     svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
-            //     svst1_f64(npred, &c[7 * ldc + col_offset], c7x);
-            //     svst1_f64(npred, &c[8 * ldc + col_offset], c8x);
-            //     svst1_f64(npred, &c[9 * ldc + col_offset], c9x);
-            //     svst1_f64(npred, &c[10 * ldc + col_offset], c10x);
-            //     svst1_f64(npred, &c[11 * ldc + col_offset], c11x);
-            //     svst1_f64(npred, &c[12 * ldc + col_offset], c12x);
-            
-            //     break;
-            // }
-            case 12: { // 20.7115
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-                svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-                svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-                svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-                svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc + col_offset]);
-                svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc + col_offset]);
-                svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc + col_offset]);
-                svfloat64_t c10x = svld1_f64(npred, &c[10 * ldc + col_offset]);
-                svfloat64_t c11x = svld1_f64(npred, &c[11 * ldc + col_offset]);
-                
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
-                    svfloat64_t a4 = svdup_f64(a_col[4]);
-                    svfloat64_t a5 = svdup_f64(a_col[5]);
-                    svfloat64_t a6 = svdup_f64(a_col[6]);
-                    svfloat64_t a7 = svdup_f64(a_col[7]);
-                    svfloat64_t a8 = svdup_f64(a_col[8]);
-                    svfloat64_t a9 = svdup_f64(a_col[9]);
-                    svfloat64_t a10 = svdup_f64(a_col[10]);
-                    svfloat64_t a11 = svdup_f64(a_col[11]);
-                
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                    c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-                    c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-                    c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-                    c7x = svmla_f64_m(npred, c7x, b_vec, a7);
-                    c8x = svmla_f64_m(npred, c8x, b_vec, a8);
-                    c9x = svmla_f64_m(npred, c9x, b_vec, a9);
-                    c10x = svmla_f64_m(npred, c10x, b_vec, a10);
-                    c11x = svmla_f64_m(npred, c11x, b_vec, a11);
-                }
-            
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-                svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-                svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-                svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
-                svst1_f64(npred, &c[7 * ldc + col_offset], c7x);
-                svst1_f64(npred, &c[8 * ldc + col_offset], c8x);
-                svst1_f64(npred, &c[9 * ldc + col_offset], c9x);
-                svst1_f64(npred, &c[10 * ldc + col_offset], c10x);
-                svst1_f64(npred, &c[11 * ldc + col_offset], c11x);
-            
-                break;
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+                c4x = svmla_f64_m(npred, c4x, b_vec, a4);
+                c5x = svmla_f64_m(npred, c5x, b_vec, a5);
+                c6x = svmla_f64_m(npred, c6x, b_vec, a6);
+                c7x = svmla_f64_m(npred, c7x, b_vec, a7);
+                c8x = svmla_f64_m(npred, c8x, b_vec, a8);
+                c9x = svmla_f64_m(npred, c9x, b_vec, a9);
+                c10x = svmla_f64_m(npred, c10x, b_vec, a10);
+                c11x = svmla_f64_m(npred, c11x, b_vec, a11);
             }
-            case 11: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-                svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-                svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-                svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-                svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc + col_offset]);
-                svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc + col_offset]);
-                svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc + col_offset]);
-                svfloat64_t c10x = svld1_f64(npred, &c[10 * ldc + col_offset]);
-                
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
-                    svfloat64_t a4 = svdup_f64(a_col[4]);
-                    svfloat64_t a5 = svdup_f64(a_col[5]);
-                    svfloat64_t a6 = svdup_f64(a_col[6]);
-                    svfloat64_t a7 = svdup_f64(a_col[7]);
-                    svfloat64_t a8 = svdup_f64(a_col[8]);
-                    svfloat64_t a9 = svdup_f64(a_col[9]);
-                    svfloat64_t a10 = svdup_f64(a_col[10]);
-                
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                    c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-                    c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-                    c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-                    c7x = svmla_f64_m(npred, c7x, b_vec, a7);
-                    c8x = svmla_f64_m(npred, c8x, b_vec, a8);
-                    c9x = svmla_f64_m(npred, c9x, b_vec, a9);
-                    c10x = svmla_f64_m(npred, c10x, b_vec, a10);
-                }
+        
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
+            svst1_f64(npred, &c[4 * ldc ], c4x);
+            svst1_f64(npred, &c[5 * ldc ], c5x);
+            svst1_f64(npred, &c[6 * ldc ], c6x);
+            svst1_f64(npred, &c[7 * ldc ], c7x);
+            svst1_f64(npred, &c[8 * ldc ], c8x);
+            svst1_f64(npred, &c[9 * ldc ], c9x);
+            svst1_f64(npred, &c[10 * ldc ], c10x);
+            svst1_f64(npred, &c[11 * ldc ], c11x);
+        
+            break;
+        }
+        case 11: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
+            svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc ]);
+            svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc ]);
+            svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc ]);
+            svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc ]);
+            svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc ]);
+            svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc ]);
+            svfloat64_t c10x = svld1_f64(npred, &c[10 * ldc ]);
             
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-                svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-                svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-                svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
-                svst1_f64(npred, &c[7 * ldc + col_offset], c7x);
-                svst1_f64(npred, &c[8 * ldc + col_offset], c8x);
-                svst1_f64(npred, &c[9 * ldc + col_offset], c9x);
-                svst1_f64(npred, &c[10 * ldc + col_offset], c10x);
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
             
-                break;
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+                svfloat64_t a4 = svdup_f64(a_col[4]);
+                svfloat64_t a5 = svdup_f64(a_col[5]);
+                svfloat64_t a6 = svdup_f64(a_col[6]);
+                svfloat64_t a7 = svdup_f64(a_col[7]);
+                svfloat64_t a8 = svdup_f64(a_col[8]);
+                svfloat64_t a9 = svdup_f64(a_col[9]);
+                svfloat64_t a10 = svdup_f64(a_col[10]);
+            
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+                c4x = svmla_f64_m(npred, c4x, b_vec, a4);
+                c5x = svmla_f64_m(npred, c5x, b_vec, a5);
+                c6x = svmla_f64_m(npred, c6x, b_vec, a6);
+                c7x = svmla_f64_m(npred, c7x, b_vec, a7);
+                c8x = svmla_f64_m(npred, c8x, b_vec, a8);
+                c9x = svmla_f64_m(npred, c9x, b_vec, a9);
+                c10x = svmla_f64_m(npred, c10x, b_vec, a10);
             }
-            case 10: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-                svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-                svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-                svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-                svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc + col_offset]);
-                svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc + col_offset]);
-                svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc + col_offset]);
-                
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
-                    svfloat64_t a4 = svdup_f64(a_col[4]);
-                    svfloat64_t a5 = svdup_f64(a_col[5]);
-                    svfloat64_t a6 = svdup_f64(a_col[6]);
-                    svfloat64_t a7 = svdup_f64(a_col[7]);
-                    svfloat64_t a8 = svdup_f64(a_col[8]);
-                    svfloat64_t a9 = svdup_f64(a_col[9]);
-                
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                    c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-                    c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-                    c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-                    c7x = svmla_f64_m(npred, c7x, b_vec, a7);
-                    c8x = svmla_f64_m(npred, c8x, b_vec, a8);
-                    c9x = svmla_f64_m(npred, c9x, b_vec, a9);
-                }
+        
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
+            svst1_f64(npred, &c[4 * ldc ], c4x);
+            svst1_f64(npred, &c[5 * ldc ], c5x);
+            svst1_f64(npred, &c[6 * ldc ], c6x);
+            svst1_f64(npred, &c[7 * ldc ], c7x);
+            svst1_f64(npred, &c[8 * ldc ], c8x);
+            svst1_f64(npred, &c[9 * ldc ], c9x);
+            svst1_f64(npred, &c[10 * ldc ], c10x);
+        
+            break;
+        }
+        case 10: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
+            svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc ]);
+            svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc ]);
+            svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc ]);
+            svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc ]);
+            svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc ]);
+            svfloat64_t c9x = svld1_f64(npred, &c[9 * ldc ]);
             
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-                svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-                svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-                svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
-                svst1_f64(npred, &c[7 * ldc + col_offset], c7x);
-                svst1_f64(npred, &c[8 * ldc + col_offset], c8x);
-                svst1_f64(npred, &c[9 * ldc + col_offset], c9x);
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
             
-                break;
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+                svfloat64_t a4 = svdup_f64(a_col[4]);
+                svfloat64_t a5 = svdup_f64(a_col[5]);
+                svfloat64_t a6 = svdup_f64(a_col[6]);
+                svfloat64_t a7 = svdup_f64(a_col[7]);
+                svfloat64_t a8 = svdup_f64(a_col[8]);
+                svfloat64_t a9 = svdup_f64(a_col[9]);
+            
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+                c4x = svmla_f64_m(npred, c4x, b_vec, a4);
+                c5x = svmla_f64_m(npred, c5x, b_vec, a5);
+                c6x = svmla_f64_m(npred, c6x, b_vec, a6);
+                c7x = svmla_f64_m(npred, c7x, b_vec, a7);
+                c8x = svmla_f64_m(npred, c8x, b_vec, a8);
+                c9x = svmla_f64_m(npred, c9x, b_vec, a9);
             }
-            case 9: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-                svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-                svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-                svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-                svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc + col_offset]);
-                svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc + col_offset]);
-                
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
-                    svfloat64_t a4 = svdup_f64(a_col[4]);
-                    svfloat64_t a5 = svdup_f64(a_col[5]);
-                    svfloat64_t a6 = svdup_f64(a_col[6]);
-                    svfloat64_t a7 = svdup_f64(a_col[7]);
-                    svfloat64_t a8 = svdup_f64(a_col[8]);
-                
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                    c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-                    c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-                    c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-                    c7x = svmla_f64_m(npred, c7x, b_vec, a7);
-                    c8x = svmla_f64_m(npred, c8x, b_vec, a8);
-                }
+        
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
+            svst1_f64(npred, &c[4 * ldc ], c4x);
+            svst1_f64(npred, &c[5 * ldc ], c5x);
+            svst1_f64(npred, &c[6 * ldc ], c6x);
+            svst1_f64(npred, &c[7 * ldc ], c7x);
+            svst1_f64(npred, &c[8 * ldc ], c8x);
+            svst1_f64(npred, &c[9 * ldc ], c9x);
+        
+            break;
+        }
+        case 9: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
+            svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc ]);
+            svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc ]);
+            svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc ]);
+            svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc ]);
+            svfloat64_t c8x = svld1_f64(npred, &c[8 * ldc ]);
             
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-                svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-                svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-                svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
-                svst1_f64(npred, &c[7 * ldc + col_offset], c7x);
-                svst1_f64(npred, &c[8 * ldc + col_offset], c8x);
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
             
-                break;
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+                svfloat64_t a4 = svdup_f64(a_col[4]);
+                svfloat64_t a5 = svdup_f64(a_col[5]);
+                svfloat64_t a6 = svdup_f64(a_col[6]);
+                svfloat64_t a7 = svdup_f64(a_col[7]);
+                svfloat64_t a8 = svdup_f64(a_col[8]);
+            
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+                c4x = svmla_f64_m(npred, c4x, b_vec, a4);
+                c5x = svmla_f64_m(npred, c5x, b_vec, a5);
+                c6x = svmla_f64_m(npred, c6x, b_vec, a6);
+                c7x = svmla_f64_m(npred, c7x, b_vec, a7);
+                c8x = svmla_f64_m(npred, c8x, b_vec, a8);
             }
-            case 8: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-                svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-                svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-                svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-                svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc + col_offset]);
-                
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
-                    svfloat64_t a4 = svdup_f64(a_col[4]);
-                    svfloat64_t a5 = svdup_f64(a_col[5]);
-                    svfloat64_t a6 = svdup_f64(a_col[6]);
-                    svfloat64_t a7 = svdup_f64(a_col[7]);
-                
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                    c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-                    c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-                    c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-                    c7x = svmla_f64_m(npred, c7x, b_vec, a7);
-                }
+        
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
+            svst1_f64(npred, &c[4 * ldc ], c4x);
+            svst1_f64(npred, &c[5 * ldc ], c5x);
+            svst1_f64(npred, &c[6 * ldc ], c6x);
+            svst1_f64(npred, &c[7 * ldc ], c7x);
+            svst1_f64(npred, &c[8 * ldc ], c8x);
+        
+            break;
+        }
+        case 8: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
+            svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc ]);
+            svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc ]);
+            svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc ]);
+            svfloat64_t c7x = svld1_f64(npred, &c[7 * ldc ]);
             
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-                svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-                svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-                svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
-                svst1_f64(npred, &c[7 * ldc + col_offset], c7x);
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
             
-                break;
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+                svfloat64_t a4 = svdup_f64(a_col[4]);
+                svfloat64_t a5 = svdup_f64(a_col[5]);
+                svfloat64_t a6 = svdup_f64(a_col[6]);
+                svfloat64_t a7 = svdup_f64(a_col[7]);
+            
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+                c4x = svmla_f64_m(npred, c4x, b_vec, a4);
+                c5x = svmla_f64_m(npred, c5x, b_vec, a5);
+                c6x = svmla_f64_m(npred, c6x, b_vec, a6);
+                c7x = svmla_f64_m(npred, c7x, b_vec, a7);
             }
-            case 7: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-                svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-                svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-                svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc + col_offset]);
-                
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
-                    svfloat64_t a4 = svdup_f64(a_col[4]);
-                    svfloat64_t a5 = svdup_f64(a_col[5]);
-                    svfloat64_t a6 = svdup_f64(a_col[6]);
-                
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                    c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-                    c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-                    c6x = svmla_f64_m(npred, c6x, b_vec, a6);
-                }
+        
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
+            svst1_f64(npred, &c[4 * ldc ], c4x);
+            svst1_f64(npred, &c[5 * ldc ], c5x);
+            svst1_f64(npred, &c[6 * ldc ], c6x);
+            svst1_f64(npred, &c[7 * ldc ], c7x);
+        
+            break;
+        }
+        case 7: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
+            svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc ]);
+            svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc ]);
+            svfloat64_t c6x = svld1_f64(npred, &c[6 * ldc ]);
             
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-                svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-                svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
-                svst1_f64(npred, &c[6 * ldc + col_offset], c6x);
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
             
-                break;
-            }
-            case 6: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-                svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-                svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc + col_offset]);
-                
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
-                    svfloat64_t a4 = svdup_f64(a_col[4]);
-                    svfloat64_t a5 = svdup_f64(a_col[5]);
-                
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                    c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-                    c5x = svmla_f64_m(npred, c5x, b_vec, a5);
-                }
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+                svfloat64_t a4 = svdup_f64(a_col[4]);
+                svfloat64_t a5 = svdup_f64(a_col[5]);
+                svfloat64_t a6 = svdup_f64(a_col[6]);
             
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-                svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
-                svst1_f64(npred, &c[5 * ldc + col_offset], c5x);
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+                c4x = svmla_f64_m(npred, c4x, b_vec, a4);
+                c5x = svmla_f64_m(npred, c5x, b_vec, a5);
+                c6x = svmla_f64_m(npred, c6x, b_vec, a6);
+            }
+        
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
+            svst1_f64(npred, &c[4 * ldc ], c4x);
+            svst1_f64(npred, &c[5 * ldc ], c5x);
+            svst1_f64(npred, &c[6 * ldc ], c6x);
+        
+            break;
+        }
+        case 6: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
+            svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc ]);
+            svfloat64_t c5x = svld1_f64(npred, &c[5 * ldc ]);
             
-                break;
-            }
-            case 5: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
-                svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc + col_offset]);
-                
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
-                    svfloat64_t a4 = svdup_f64(a_col[4]);
-                
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                    c4x = svmla_f64_m(npred, c4x, b_vec, a4);
-                }
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
             
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
-                svst1_f64(npred, &c[4 * ldc + col_offset], c4x);
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+                svfloat64_t a4 = svdup_f64(a_col[4]);
+                svfloat64_t a5 = svdup_f64(a_col[5]);
             
-                break;
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+                c4x = svmla_f64_m(npred, c4x, b_vec, a4);
+                c5x = svmla_f64_m(npred, c5x, b_vec, a5);
             }
-            case 4: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
-                svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc + col_offset]);
- 
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
- 
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
-                    svfloat64_t a3 = svdup_f64(a_col[3]);
- 
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                    c3x = svmla_f64_m(npred, c3x, b_vec, a3);
-                }
- 
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
-                svst1_f64(npred, &c[3 * ldc + col_offset], c3x);
- 
-                break;
-            }
-            case 3: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
-                svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc + col_offset]);
- 
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
+        
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
+            svst1_f64(npred, &c[4 * ldc ], c4x);
+            svst1_f64(npred, &c[5 * ldc ], c5x);
+        
+            break;
+        }
+        case 5: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
+            svfloat64_t c4x = svld1_f64(npred, &c[4 * ldc ]);
             
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    svfloat64_t a2 = svdup_f64(a_col[2]);
- 
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                    c2x = svmla_f64_m(npred, c2x, b_vec, a2);
-                }
- 
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
-                svst1_f64(npred, &c[2 * ldc + col_offset], c2x);
- 
-                break;
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
+            
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
+                svfloat64_t a4 = svdup_f64(a_col[4]);
+            
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
+                c4x = svmla_f64_m(npred, c4x, b_vec, a4);
             }
-            case 2: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
-                svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc + col_offset]);
+        
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
+            svst1_f64(npred, &c[4 * ldc ], c4x);
+        
+            break;
+        }
+        case 4: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
+            svfloat64_t c3x = svld1_f64(npred, &c[3 * ldc ]);
  
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    // for (int idx = 0; idx < nr; idx++) {
-                    //     cout << "B row " << j << " col " << idx << ": " << b_row[idx] << endl;
-                    // }
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                    // print_svfloat64(b_vec, npred);
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
  
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
-                    svfloat64_t a1 = svdup_f64(a_col[1]);
-                    // print_svfloat64(a0, npred);
-                    // print_svfloat64(a1, npred);
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
+                svfloat64_t a3 = svdup_f64(a_col[3]);
  
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                    c1x = svmla_f64_m(npred, c1x, b_vec, a1);
-                }
- 
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
-                svst1_f64(npred, &c[1 * ldc + col_offset], c1x);
- 
-                break;
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
+                c3x = svmla_f64_m(npred, c3x, b_vec, a3);
             }
-            case 1: {
-                svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc + col_offset]);
  
-                for (int j = 0; j < kc; j++) {
-                    const double* b_row = &b[j * nr]; // pointer to current row in B
-                    svfloat64_t b_vec = svld1_f64(npred, b_row + col_offset); // load B row vector
-                
-                    const double* a_col = &a[j * mr]; // pointer to current column in A
-                    svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+            svst1_f64(npred, &c[3 * ldc ], c3x);
  
-                    c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
-                }
+            break;
+        }
+        case 3: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+            svfloat64_t c2x = svld1_f64(npred, &c[2 * ldc ]);
  
-                svst1_f64(npred, &c[0 * ldc + col_offset], c0x); // store results back to C
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
+        
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                svfloat64_t a2 = svdup_f64(a_col[2]);
  
-                break;
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+                c2x = svmla_f64_m(npred, c2x, b_vec, a2);
             }
+ 
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+            svst1_f64(npred, &c[2 * ldc ], c2x);
+ 
+            break;
+        }
+        case 2: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+            svfloat64_t c1x = svld1_f64(npred, &c[1 * ldc ]);
+ 
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                // for (int idx = 0; idx < nr; idx++) {
+                //     cout << "B row " << j << " col " << idx << ": " << b_row[idx] << endl;
+                // }
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
+                // print_svfloat64(b_vec, npred);
+ 
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+                svfloat64_t a1 = svdup_f64(a_col[1]);
+                // print_svfloat64(a0, npred);
+                // print_svfloat64(a1, npred);
+ 
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+                c1x = svmla_f64_m(npred, c1x, b_vec, a1);
+            }
+ 
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+            svst1_f64(npred, &c[1 * ldc ], c1x);
+ 
+            break;
+        }
+        case 1: {
+            svfloat64_t c0x = svld1_f64(npred, &c[0 * ldc ]);
+ 
+            for (int j = 0; j < kc; j++) {
+                const double* b_row = &b[j * nr]; // pointer to current row in B
+                svfloat64_t b_vec = svld1_f64(npred, b_row ); // load B row vector
+            
+                const double* a_col = &a[j * mr]; // pointer to current column in A
+                svfloat64_t a0 = svdup_f64(a_col[0]); // broadcast A values
+ 
+                c0x = svmla_f64_m(npred, c0x, b_vec, a0); // multiply-accumulate
+            }
+ 
+            svst1_f64(npred, &c[0 * ldc ], c0x); // store results back to C
+ 
+            break;
         }
     }
 }
