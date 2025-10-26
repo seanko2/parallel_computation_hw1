@@ -44,3 +44,6 @@
 .DS_Store
 .vscode/
 mm
+
+# custom
+perf_grade.sh
