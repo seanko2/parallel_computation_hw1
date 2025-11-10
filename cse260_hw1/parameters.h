@@ -11,15 +11,15 @@
 #endif
 
 #ifndef PARAM_KC
-#define PARAM_KC 128
+#define PARAM_KC 512
 #endif
 
 #ifndef PARAM_MR
-#define PARAM_MR 8
+#define PARAM_MR 12
 #endif
 
 #ifndef PARAM_NR
-#define PARAM_NR 8
+#define PARAM_NR 4
 #endif
 
 inline constexpr int param_mc = PARAM_MC;
